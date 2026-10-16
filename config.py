@@ -5,13 +5,17 @@ BASE_DIR = Path(__file__).resolve().parent
 
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY', 'fincred-ai-super-secret-key-2026-production-grade')
-    SQLALCHEMY_DATABASE_URI = os.environ.get(
+    _db_url = os.environ.get(
         'DATABASE_URL', f'sqlite:///{BASE_DIR / "instance" / "fincred.db"}'
     )
+    if _db_url.startswith('postgres://'):
+        _db_url = _db_url.replace('postgres://', 'postgresql://', 1)
+    SQLALCHEMY_DATABASE_URI = _db_url
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # Document Upload configurations
-    UPLOAD_FOLDER = BASE_DIR / 'uploads'
+    _upload_env = os.environ.get('UPLOAD_FOLDER')
+    UPLOAD_FOLDER = Path(_upload_env) if _upload_env else BASE_DIR / 'uploads'
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB max limit
     ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg'}
     

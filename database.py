@@ -16,8 +16,10 @@ def init_db(app):
     """Initialize database tables and seed baseline data"""
     with app.app_context():
         # Ensure instance and upload directories exist
-        instance_dir = Path(app.config.get('SQLALCHEMY_DATABASE_URI').replace('sqlite:///', '')).parent
-        instance_dir.mkdir(parents=True, exist_ok=True)
+        db_uri = app.config.get('SQLALCHEMY_DATABASE_URI', '')
+        if db_uri.startswith('sqlite:///'):
+            db_path = Path(db_uri.replace('sqlite:///', ''))
+            db_path.parent.mkdir(parents=True, exist_ok=True)
         
         upload_dir = Path(app.config['UPLOAD_FOLDER'])
         upload_dir.mkdir(parents=True, exist_ok=True)
