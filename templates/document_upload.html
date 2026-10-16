@@ -148,7 +148,24 @@
                             <div class="d-flex align-items-center gap-2 mb-1">
                                 <h6 class="fc-card-title fw-bold text-dark mb-0">{{ slot.name }}</h6>
                             </div>
-                            <small class="text-muted" style="font-size: 0.82rem;">{{ slot.purpose }}</small>
+                            <div class="text-muted small mb-1">
+                                <strong>Purpose:</strong> {{ slot.purpose }}
+                            </div>
+                            <div class="text-muted small mb-1">
+                                <strong>Requirement:</strong> 
+                                {% if slot.badge_type == 'required' %}
+                                <span class="text-danger fw-semibold">Required</span>
+                                {% elif slot.badge_type == 'conditional-active' %}
+                                <span class="text-warning-emphasis fw-semibold">Required for this {{ application.employment_type | lower }} applicant</span>
+                                {% elif slot.badge_type == 'conditional-inactive' %}
+                                <span class="text-secondary">Not Required for the current application</span>
+                                {% else %}
+                                <span class="text-secondary">Optional</span>
+                                {% endif %}
+                            </div>
+                            <div class="text-muted small">
+                                <strong>Accepted formats:</strong> PDF, JPG, PNG
+                            </div>
                         </div>
                         <div>
                             {% if slot.badge_type == 'required' %}
@@ -159,7 +176,7 @@
                             </span>
                             {% elif slot.badge_type == 'conditional-inactive' %}
                             <span class="badge bg-light text-muted border py-1 px-2" style="font-size: 0.75rem;" title="{{ slot.condition_explanation }}">
-                                Conditional — Not Required
+                                Not Required
                             </span>
                             {% else %}
                             <span class="badge bg-secondary-subtle text-secondary py-1 px-2" style="font-size: 0.75rem;">Optional</span>
@@ -170,7 +187,7 @@
                     <!-- Card Body -->
                     <div class="fc-card-body d-flex flex-column justify-content-between pt-2">
                         
-                        <!-- Rationale / Condition explanation -->
+                        <!-- Policy condition rationale explanation -->
                         {% if slot.condition_explanation %}
                         <div class="alert alert-light border py-1 px-2 mb-3 small text-muted" style="font-size: 0.78rem;">
                             <i class="bi bi-info-circle me-1 text-primary"></i>
@@ -192,29 +209,25 @@
                                     {% endif %}
                                     <div>
                                         <div class="fw-semibold text-dark text-break" style="font-size: 0.9rem;">
-                                            {{ doc.original_filename }}
+                                            <strong>Filename:</strong> <code>{{ doc.original_filename }}</code>
                                         </div>
                                         <div class="small text-muted" style="font-size: 0.75rem;">
-                                            {{ (doc.file_size / 1024) | round(1) }} KB | {{ doc.file_type | upper }} | Uploaded: {{ doc.uploaded_at | format_date('%d %b %Y, %I:%M %p') }}
+                                            <strong>Uploaded:</strong> {{ doc.uploaded_at | format_date('%d %b %Y, %I:%M %p') }} | {{ (doc.file_size / 1024) | round(1) }} KB | {{ doc.file_type | upper }}
                                         </div>
                                     </div>
                                 </div>
                                 <div>
                                     {% if doc.verification_status == 'verified' %}
-                                    <span class="badge bg-success-subtle text-success border border-success-subtle">
-                                        <i class="bi bi-check-circle-fill me-1"></i>Verified
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle py-1 px-2">
+                                        <i class="bi bi-check-circle-fill me-1"></i>Status: Verified
                                     </span>
                                     {% elif doc.verification_status == 'rejected' %}
-                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
-                                        <i class="bi bi-x-circle-fill me-1"></i>Rejected / Needs Replacement
-                                    </span>
-                                    {% elif doc.verification_status == 'needs_review' %}
-                                    <span class="badge bg-warning-subtle text-warning border border-warning-subtle">
-                                        <i class="bi bi-flag-fill me-1"></i>Under Review
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle py-1 px-2">
+                                        <i class="bi bi-exclamation-octagon-fill me-1"></i>Status: Needs Replacement
                                     </span>
                                     {% else %}
-                                    <span class="badge bg-info-subtle text-info border border-info-subtle">
-                                        <i class="bi bi-clock-history me-1"></i>Uploaded (Pending Officer Check)
+                                    <span class="badge bg-warning-subtle text-dark border border-warning-subtle py-1 px-2">
+                                        <i class="bi bi-clock-history me-1"></i>Status: Uploaded — Awaiting Verification
                                     </span>
                                     {% endif %}
                                 </div>
@@ -224,7 +237,7 @@
                             {% if slot.reviewer_comments %}
                             <div class="alert alert-danger py-2 px-3 small mt-2 mb-2">
                                 <i class="bi bi-exclamation-octagon-fill me-1"></i>
-                                <strong>Officer Reviewer Note:</strong> {{ slot.reviewer_comments }}
+                                <strong>Reviewer comments:</strong> {{ slot.reviewer_comments }}
                             </div>
                             {% endif %}
 
@@ -256,10 +269,10 @@
                         <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 pt-2 border-top">
                             <div class="d-flex gap-2">
                                 <a href="{{ url_for('officer.preview_document', doc_id=doc.id) }}" target="_blank" class="btn btn-sm btn-outline-secondary">
-                                    <i class="bi bi-eye me-1"></i> Preview File
+                                    <i class="bi bi-eye me-1"></i> Preview
                                 </a>
                                 <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#replace_form_{{ slot.doc_type }}" aria-expanded="false">
-                                    <i class="bi bi-arrow-repeat me-1"></i> Replace File
+                                    <i class="bi bi-arrow-repeat me-1"></i> Replace
                                 </button>
                             </div>
                             <div>
@@ -321,7 +334,14 @@
                         </div>
 
                         <div class="d-flex align-items-center justify-content-between text-muted small pt-2 border-top" style="font-size: 0.78rem;">
-                            <span>Status: <strong class="text-muted">Not Uploaded</strong></span>
+                            <span>
+                                <strong>Status:</strong>
+                                {% if slot.badge_type == 'conditional-inactive' %}
+                                <span class="badge bg-light text-muted border py-1 px-2">Not Required</span>
+                                {% else %}
+                                <span class="badge bg-secondary-subtle text-dark border py-1 px-2">Not Uploaded</span>
+                                {% endif %}
+                            </span>
                             {% if slot.is_mandatory %}
                             <span class="text-danger fw-semibold"><i class="bi bi-asterisk me-1"></i>Mandatory for submission</span>
                             {% else %}
