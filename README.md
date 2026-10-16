@@ -50,11 +50,19 @@ Unlike conventional underwriting tools that return simple binary approvals, FinC
    - **Loan Type Selection Portal (`/select-loan-type`):** Interactive card deck guiding applicants to the appropriate dynamic questionnaire.
    - **Admin Loan Type Catalog (`/admin/loan-types`):** Full administrator control to create, modify, configure document mandates, or toggle status of loan categories.
 
-7. **Academic Backlog Policy Evaluation:**
+7. **Dedicated Document Upload & Dynamic Checklists Per Loan Type:**
+   - **Never One Generic Checklist:** Every loan type generates its own tailored document checklist (Home, Gold, Education, Personal, Vehicle, Business, LAP, Agriculture).
+   - **Individual Upload Controls:** Every required document slot features its own upload button, format validation (PDF/JPG/PNG), preview modal, replace, and remove actions.
+   - **Status Classifications:** Slots dynamically categorize into **Required**, **Conditional** (with clear explanations, e.g. salaried vs self-employed, existing loans), or **Optional**.
+   - **Progress Tracking & Save State:** Real-time indicator ("X of Y required documents uploaded") with "Save & Return Later" capability.
+   - **Submission Guard:** Enforces that all mandatory documents are uploaded before permitting underwriting submission.
+   - **Credit Officer Review & Replacement Request:** Officers can inspect uploads, mark documents as "Needs Replacement", and issue replacement instructions directly to the applicant's upload card.
+
+8. **Academic Backlog Policy Evaluation:**
    - Dedicated rule for student/education loans (e.g. Horizon Scholar Loan): compares active backlog counts against permitted caps.
    - If the selected bank does not evaluate academic backlogs (e.g. Personal/Home Loans), backlogs are transparently marked as *Not Applicable* and do not penalize the borrower.
 
-8. **Four Explainable Assessment Outcomes:**
+9. **Four Explainable Assessment Outcomes:**
    - **Meets Requirements:** All verified checks satisfied.
    - **Does Not Meet Requirements:** One or more confirmed criteria failed.
    - **Pending Verification:** Mandatory documents or income records missing (missing docs are never treated as confirmed failures).
@@ -164,7 +172,7 @@ FinCred AI includes a comprehensive test suite covering mathematical calculation
 python -m pytest -v
 ```
 
-All 16 automated test suites validate:
+All 21 automated test suites validate:
 - Loan amortization EMI formula and edge cases.
 - Salary progression calculation (+₹10,000 / +45.45% from specification).
 - Structured entity extraction from payslips.
@@ -173,14 +181,22 @@ All 16 automated test suites validate:
 - Master loan categories seeding & catalog management.
 - Gold loan collateral valuation and statutory 75% LTV cap enforcement.
 - Business loan vintage and annual turnover underwriting.
+- Dedicated loan-specific document checklist evaluation across all 8 loan types.
+- Conditional document requirement rules and status progressions.
+- Document slot upload, preview, replace, and remove lifecycle.
+- Bank officer rejection and replacement request workflows.
 - Route accessibility, role enforcement, and session security.
 
 ### End-to-End System Verification
 Run the complete multi-role end-to-end simulation:
 ```powershell
+# Verify all 12 frontend pages, navigation wizards, and RBAC screens
+python test_e2e_endpoints.py
+
+# Verify complete multi-role user journeys across applicant, officer, and admin
 python test_e2e_all_features.py
 ```
-This script exercises 12 critical user journeys across applicant loan application, collateral valuation, synthetic document attachment, explainable results rendering, dashboard category filtering, admin catalog CRUD, and bank officer review.
+These scripts exercise all critical user journeys across applicant loan application, collateral valuation, loan-specific document attachment, explainable results rendering, dashboard category filtering, admin catalog CRUD, and bank officer review.
 
 ---
 
