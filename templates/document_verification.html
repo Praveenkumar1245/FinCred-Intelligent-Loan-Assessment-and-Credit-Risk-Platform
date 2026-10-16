@@ -1,0 +1,197 @@
+{% extends 'base.html' %}
+{% block title %}Document Verification & Cross-Check — FinCred AI{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-11">
+
+        <!-- Header -->
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <div>
+                <span class="badge bg-primary-subtle text-primary mb-1">Automated Document Ingestion & Cross-Validation</span>
+                <h3 class="fw-bold text-dark mb-1">
+                    <i class="bi bi-shield-check text-primary me-2"></i> Document Data Extraction & Discrepancy Analysis
+                </h3>
+                <p class="text-muted small mb-0">
+                    Application #<strong>{{ application.application_number }}</strong> — {{ application.applicant.full_name }}
+                </p>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{{ url_for('applicant.document_upload', app_id=application.id) }}" class="btn btn-fincred-outline btn-sm">
+                    <i class="bi bi-upload me-1"></i> Document Repository
+                </a>
+                <a href="{{ url_for('applicant.eligibility_results', app_id=application.id) }}" class="btn btn-fincred-primary btn-sm">
+                    <i class="bi bi-card-text me-1"></i> Final Eligibility
+                </a>
+            </div>
+        </div>
+
+        <!-- Strict Authenticity Disclaimer Box (Required by Step 4) -->
+        <div class="alert alert-secondary border-0 shadow-sm p-3 mb-4 d-flex align-items-center gap-3" style="background-color: #f1f5f9; border-left: 5px solid #475569 !important;">
+            <i class="bi bi-info-circle-fill text-secondary fs-3"></i>
+            <div>
+                <strong class="text-dark">Automated Extraction & Authenticity Policy:</strong>
+                <div class="text-muted small">
+                    Text extracted via PyMuPDF or Tesseract OCR reflects the algorithmic digital reading of the submitted document.
+                    A successful text match <strong>does not verify genuine document authenticity</strong> or preclude document forgery.
+                    Any uncertain, inconsistent, or high-risk information must be corroborated and physically/digitally verified by an authorized bank officer.
+                </div>
+            </div>
+        </div>
+
+        <!-- Cross-Check Discrepancy Findings -->
+        <div class="fc-card mb-4">
+            <div class="fc-card-header">
+                <h5 class="fc-card-title">
+                    <i class="bi bi-search text-teal"></i> Declared vs Extracted Discrepancy Report
+                </h5>
+                <div>
+                    {% if cross_check.has_discrepancy %}
+                    <span class="badge bg-warning-subtle text-warning small">
+                        <i class="bi bi-exclamation-triangle me-1"></i> {{ cross_check.discrepancies | length }} Discrepancy(ies) Detected
+                    </span>
+                    {% else %}
+                    <span class="badge bg-success-subtle text-success small">
+                        <i class="bi bi-check-all me-1"></i> Declared Data Corroborates with Documents
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="fc-card-body">
+                {% if cross_check.has_discrepancy %}
+                <div class="table-responsive">
+                    <table class="table table-fincred mb-0">
+                        <thead>
+                            <tr>
+                                <th>Field Analyzed</th>
+                                <th>Declared by Applicant</th>
+                                <th>Extracted from Document</th>
+                                <th>Variance / Difference</th>
+                                <th>Automated Explanation & Policy Impact</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for disc in cross_check.discrepancies %}
+                            <tr class="table-warning">
+                                <td class="fw-semibold text-dark">{{ disc.field }}</td>
+                                <td><span class="badge bg-light text-dark border">{{ disc.declared }}</span></td>
+                                <td><span class="badge bg-light text-primary border">{{ disc.extracted }}</span></td>
+                                <td><strong class="text-danger">{{ disc.difference }}</strong></td>
+                                <td class="small">{{ disc.explanation }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="bi bi-check-circle-fill text-success fs-1 mb-2 d-block"></i>
+                    <h6 class="fw-bold text-dark">No Cross-Document Discrepancies Found</h6>
+                    <p class="text-muted small mb-0">
+                        The applicant's declared monthly salary, employer name, and applicant identity match the values extracted from the uploaded document(s).
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Detailed Extracted Document Cards -->
+        <div class="fc-card">
+            <div class="fc-card-header">
+                <h5 class="fc-card-title"><i class="bi bi-cpu text-navy"></i> Structured Extractions by Document</h5>
+                <span class="badge bg-secondary-subtle text-secondary small">{{ documents | length }} Documents</span>
+            </div>
+            <div class="fc-card-body">
+                <div class="row g-3">
+                    {% for doc in documents %}
+                    {% set ext = doc.extracted_record %}
+                    <div class="col-lg-6">
+                        <div class="border rounded p-3 h-100 bg-white">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <span class="badge bg-light text-dark border">
+                                    {{ doc.document_type | replace('_', ' ') | title }}
+                                </span>
+                                <span class="badge-fincred {{ doc.verification_status | status_class }}">
+                                    {{ doc.verification_status | replace('_', ' ') | title }}
+                                </span>
+                            </div>
+                            <div class="fw-semibold text-primary mb-2 text-truncate" title="{{ doc.original_filename }}">
+                                <i class="bi bi-file-earmark-text me-1"></i> {{ doc.original_filename }}
+                            </div>
+
+                            {% if ext %}
+                            <div class="bg-light p-2 rounded small mb-2">
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <span class="text-muted">Extraction Tool:</span>
+                                        <strong class="text-dark d-block">{{ ext.extraction_method }}</strong>
+                                    </div>
+                                    <div class="col-6">
+                                        <span class="text-muted">Confidence Score:</span>
+                                        <strong class="text-teal d-block">{{ ext.confidence_score }}%</strong>
+                                    </div>
+                                    <div class="col-6">
+                                        <span class="text-muted">Extracted Salary:</span>
+                                        <strong class="text-success d-block">{{ ext.salary_amount_extracted | currency if ext.salary_amount_extracted else 'Not Found' }}</strong>
+                                    </div>
+                                    <div class="col-6">
+                                        <span class="text-muted">Salary Month:</span>
+                                        <strong class="text-dark d-block">{{ ext.salary_month_extracted or 'Not Found' }}</strong>
+                                    </div>
+                                    <div class="col-6">
+                                        <span class="text-muted">Extracted Employer:</span>
+                                        <span class="text-dark d-block text-truncate">{{ ext.company_name_extracted or 'Not Found' }}</span>
+                                    </div>
+                                    <div class="col-6">
+                                        <span class="text-muted">Extracted Employee:</span>
+                                        <span class="text-dark d-block text-truncate">{{ ext.applicant_name_extracted or 'Not Found' }}</span>
+                                    </div>
+                                    <div class="col-6">
+                                        <span class="text-muted">Deductions:</span>
+                                        <span class="text-muted d-block">{{ ext.deductions_extracted | currency if ext.deductions_extracted else '0.00' }}</span>
+                                    </div>
+                                    <div class="col-6">
+                                        <span class="text-muted">Bank Credits:</span>
+                                        <span class="text-muted d-block">{{ ext.bank_credits_extracted | currency if ext.bank_credits_extracted else 'N/A' }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {% if ext.is_overridden_by_officer %}
+                            <div class="alert alert-info py-1 px-2 small mb-2" style="font-size: 0.76rem;">
+                                <i class="bi bi-pencil-square me-1"></i> Extracted value manually corrected by Bank Officer.
+                            </div>
+                            {% endif %}
+
+                            {% else %}
+                            <p class="text-muted small">No structured extraction generated yet.</p>
+                            {% endif %}
+
+                            <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+                                <span class="small text-muted">{{ (doc.file_size / 1024) | round(1) }} KB</span>
+                                <a href="{{ url_for('officer.preview_document', doc_id=doc.id) }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-file-earmark me-1"></i> Preview File
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="col-12 text-center py-4 text-muted">No documents to verify.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation Buttons -->
+        <div class="d-flex justify-content-between my-4">
+            <a href="{{ url_for('applicant.salary_analysis', app_id=application.id) }}" class="btn btn-fincred-outline">
+                <i class="bi bi-arrow-left me-1"></i> Back to Salary Analysis
+            </a>
+            <a href="{{ url_for('applicant.eligibility_results', app_id=application.id) }}" class="btn btn-fincred-primary">
+                <i class="bi bi-arrow-right-circle me-1"></i> Proceed to Explainable Eligibility Results
+            </a>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+{% block title %}Bank Requirements Configuration — FinCred AI{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-11">
+
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <div>
+                <span class="badge bg-warning-subtle text-warning mb-1">Administrative Policy Configuration</span>
+                <h3 class="fw-bold text-dark mb-1">
+                    <i class="bi bi-bank2 text-primary me-2"></i> Bank Requirements & Loan Policies
+                </h3>
+                <p class="text-muted small mb-0">
+                    Configure underwriting thresholds, document checklists, and academic backlog eligibility rules across lender products.
+                </p>
+            </div>
+            <a href="{{ url_for('admin.create_bank_requirement') }}" class="btn btn-fincred-primary btn-sm">
+                <i class="bi bi-plus-circle me-1"></i> Add New Bank Policy
+            </a>
+        </div>
+
+        <div class="alert alert-light border py-2 px-3 small text-muted mb-4 d-flex align-items-center gap-2">
+            <i class="bi bi-info-circle text-primary fs-5"></i>
+            <div>
+                <strong>Policy Demonstration Notice:</strong> The rules listed below are clearly labelled <strong>sample demonstration policies</strong> configured for testing. Each policy modification automatically increments the policy version to maintain historical audit integrity for existing applications.
+            </div>
+        </div>
+
+        <div class="row g-4 mb-4">
+            {% for policy in policies %}
+            <div class="col-lg-6">
+                <div class="fc-card h-100">
+                    <div class="fc-card-header bg-white">
+                        <div>
+                            <span class="badge bg-primary-subtle text-primary small me-1">{{ policy.policy_code }}</span>
+                            <span class="badge bg-secondary-subtle text-secondary small">Version {{ policy.policy_version }}</span>
+                            {% if policy.is_sample_policy %}
+                            <span class="badge bg-light text-muted border small ms-1">Sample Demo Rule</span>
+                            {% endif %}
+                            <h5 class="fw-bold text-dark mt-1 mb-0">{{ policy.bank_name }}</h5>
+                            <div class="text-muted small">{{ policy.loan_type }}</div>
+                        </div>
+                        <div>
+                            <a href="{{ url_for('admin.edit_bank_requirement', policy_id=policy.id) }}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-pencil-square me-1"></i> Edit Rule
+                            </a>
+                        </div>
+                    </div>
+                    <div class="fc-card-body">
+                        <p class="small text-muted mb-3">{{ policy.description or 'No custom description provided.' }}</p>
+
+                        <div class="row g-2 small mb-3">
+                            <div class="col-6">
+                                <span class="text-muted">Min Monthly Income:</span>
+                                <strong class="text-dark d-block">{{ policy.min_monthly_income | currency }}</strong>
+                            </div>
+                            <div class="col-6">
+                                <span class="text-muted">Max DTI Ceiling:</span>
+                                <strong class="text-dark d-block">{{ policy.max_dti_ratio }}%</strong>
+                            </div>
+                            <div class="col-6">
+                                <span class="text-muted">Min Credit Score:</span>
+                                <strong class="text-dark d-block">{{ policy.min_credit_score }}</strong>
+                            </div>
+                            <div class="col-6">
+                                <span class="text-muted">Min Employment Tenure:</span>
+                                <strong class="text-dark d-block">{{ policy.min_employment_months }} Months</strong>
+                            </div>
+                            <div class="col-6">
+                                <span class="text-muted">Eligible Age Bracket:</span>
+                                <strong class="text-dark d-block">{{ policy.min_age }} to {{ policy.max_age }} Years</strong>
+                            </div>
+                            <div class="col-6">
+                                <span class="text-muted">Max Loan & Tenure:</span>
+                                <strong class="text-dark d-block">{{ policy.max_loan_amount | currency }} ({{ policy.max_loan_tenure_months }} mos)</strong>
+                            </div>
+                            {% if policy.max_ltv_ratio %}
+                            <div class="col-6">
+                                <span class="text-muted">Max LTV Cap:</span>
+                                <strong class="text-primary d-block">{{ policy.max_ltv_ratio }}%</strong>
+                            </div>
+                            {% endif %}
+                            {% if policy.min_business_vintage_months and policy.loan_type_code == 'business_loan' %}
+                            <div class="col-6">
+                                <span class="text-muted">Min Vintage / Turnover:</span>
+                                <strong class="text-dark d-block">{{ policy.min_business_vintage_months }} Mos | {{ policy.min_annual_turnover | currency }}</strong>
+                            </div>
+                            {% endif %}
+                            {% if policy.min_land_acres and policy.loan_type_code == 'agriculture_loan' %}
+                            <div class="col-6">
+                                <span class="text-muted">Min Landholding:</span>
+                                <strong class="text-dark d-block">{{ policy.min_land_acres }} Acres</strong>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Academic Backlog Rule Section (Step 7) -->
+                        <div class="p-2 rounded bg-light border small mb-3">
+                            <div class="d-flex align-items-center justify-content-between mb-1">
+                                <strong class="text-navy"><i class="bi bi-mortarboard me-1"></i> Academic Backlog Criteria:</strong>
+                                {% if policy.backlog_policy_enabled %}
+                                <span class="badge bg-warning-subtle text-warning">Active Policy Rule</span>
+                                {% else %}
+                                <span class="badge bg-secondary-subtle text-secondary">Not Considered</span>
+                                {% endif %}
+                            </div>
+                            <div class="text-muted" style="font-size: 0.78rem;">
+                                {% if policy.backlog_policy_enabled %}
+                                Documented Academic Rule: Maximum <strong>{{ policy.max_allowed_backlogs }}</strong> active backlogs permitted.
+                                {% if policy.backlog_policy_note %}<br><em>Note: {{ policy.backlog_policy_note }}</em>{% endif %}
+                                {% else %}
+                                This product does not evaluate academic performance; backlogs do not affect borrower eligibility.
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Mandatory Document Types -->
+                        <div class="small">
+                            <span class="text-muted fw-semibold">Mandatory Documents Required:</span>
+                            <div class="d-flex flex-wrap gap-1 mt-1">
+                                {% for dt in policy.required_documents_list %}
+                                <span class="badge bg-white text-dark border" style="font-size: 0.72rem;">
+                                    <i class="bi bi-check text-success"></i> {{ dt | replace('_', ' ') | title }}
+                                </span>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+    </div>
+</div>
+{% endblock %}

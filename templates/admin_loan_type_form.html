@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Edit ' ~ loan_type.name if loan_type else 'Create Loan Category' }} — FinCred AI Admin{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-9">
+
+        <div class="d-flex align-items-center justify-content-between mb-4">
+            <div>
+                <span class="badge bg-primary-subtle text-primary mb-1">Product Configuration</span>
+                <h3 class="fw-bold text-dark mb-1">
+                    <i class="bi bi-sliders text-primary me-2"></i>
+                    {{ 'Edit Loan Category: ' ~ loan_type.name if loan_type else 'Create New Loan Category' }}
+                </h3>
+                <p class="text-muted small mb-0">Define category underwriting parameters, default loan-to-value caps, and required documentation.</p>
+            </div>
+            <a href="{{ url_for('admin.loan_types') }}" class="btn btn-fincred-outline btn-sm">
+                <i class="bi bi-arrow-left me-1"></i> Back to Categories
+            </a>
+        </div>
+
+        <form method="POST" action="{{ url_for('admin.edit_loan_type', lt_id=loan_type.id) if loan_type else url_for('admin.create_loan_type') }}">
+            <div class="fc-card mb-4">
+                <div class="fc-card-header bg-white">
+                    <h5 class="fc-card-title mb-0">
+                        <i class="bi bi-info-circle text-navy"></i> Basic Category Information
+                    </h5>
+                </div>
+                <div class="fc-card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Loan Category Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-fincred" name="name" 
+                                   value="{{ loan_type.name if loan_type else '' }}" placeholder="e.g. Micro Enterprise Loan" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Category Code Identifier <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-fincred" name="code" 
+                                   value="{{ loan_type.code if loan_type else '' }}" placeholder="e.g. micro_enterprise_loan" 
+                                   {% if loan_type %}readonly{% else %}required{% endif %}>
+                            <div class="form-text small">Lowercase underscore identifier (used in programmatic underwriting rules).</div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Bootstrap Icon CSS Class <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light"><i class="bi {{ loan_type.icon if loan_type else 'bi-cash-coin' }}"></i></span>
+                                <input type="text" class="form-control form-control-fincred" name="icon" 
+                                       value="{{ loan_type.icon if loan_type else 'bi-cash-coin' }}" placeholder="bi-house-door" required>
+                            </div>
+                            <div class="form-text small">Bootstrap Icons identifier (e.g. bi-gem, bi-house-door, bi-mortarboard).</div>
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label-fincred">Default LTV Cap (%) <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <input type="number" class="form-control form-control-fincred" name="default_ltv_cap" 
+                                       value="{{ loan_type.default_ltv_cap if loan_type else 75.0 }}" min="10" max="100" step="1" required>
+                                <span class="input-group-text bg-light">%</span>
+                            </div>
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label-fincred">Default Base Interest Rate <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <input type="number" class="form-control form-control-fincred" name="default_interest_rate" 
+                                       value="{{ loan_type.default_interest_rate if loan_type else 10.5 }}" min="1" max="50" step="0.1" required>
+                                <span class="input-group-text bg-light">%</span>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label-fincred">Category Purpose & Description <span class="text-danger">*</span></label>
+                            <textarea class="form-control form-control-fincred" name="description" rows="2" 
+                                      placeholder="Brief user-facing summary of eligible funding purposes..." required>{{ loan_type.description if loan_type else '' }}</textarea>
+                        </div>
+
+                        {% if loan_type %}
+                        <div class="col-12">
+                            <div class="form-check form-switch mt-2">
+                                <input class="form-check-input" type="checkbox" role="switch" id="is_active" name="is_active" 
+                                       {% if loan_type.is_active %}checked{% endif %}>
+                                <label class="form-check-label fw-semibold" for="is_active">
+                                    Product Active (Available to applicants on loan selection screen)
+                                </label>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mandatory Documents Checklist Selection -->
+            {% set active_docs = loan_type.required_documents_list if loan_type else ['id_proof', 'bank_statement'] %}
+            <div class="fc-card mb-4">
+                <div class="fc-card-header bg-white">
+                    <h5 class="fc-card-title mb-0">
+                        <i class="bi bi-file-earmark-check text-teal"></i> Mandatory Document Requirements
+                    </h5>
+                    <span class="badge bg-secondary-subtle text-secondary small">Required for Assessment</span>
+                </div>
+                <div class="fc-card-body">
+                    <p class="text-muted small mb-3">
+                        Select which document categories are mandatory for applications under this loan type:
+                    </p>
+                    <div class="row g-2">
+                        {% set all_doc_options = [
+                            ('id_proof', 'Government ID Proof (PAN / Passport)'),
+                            ('address_proof', 'Address Proof (Aadhaar / Utility Bill)'),
+                            ('salary_slip', 'Monthly Salary Slip (Recent 3 Months)'),
+                            ('bank_statement', 'Bank Account Statement (6 Months)'),
+                            ('increment_letter', 'Appraisal / Increment Letter'),
+                            ('tax_doc', 'Form 16 / ITR Tax Returns'),
+                            ('property_documents', 'Property Title Deed / Sale Agreement / Approved Plan'),
+                            ('gold_valuation_cert', 'Gold Weight & Purity Certificate / Custody Form'),
+                            ('business_financials', 'Audited Business Financials / GST Returns / P&L'),
+                            ('land_records', 'Agricultural Land Records / Revenue Patta / 7/12 Extract'),
+                            ('education_cert', 'Degree Certificate / Academic Marksheets'),
+                            ('admission_letter', 'University Admission Letter / Fee Structure'),
+                            ('vehicle_quotation', 'Authorized Vehicle Dealer Proforma Invoice / RC')
+                        ] %}
+                        {% for doc_key, doc_label in all_doc_options %}
+                        <div class="col-md-6">
+                            <div class="form-check p-2 border rounded bg-light">
+                                <input class="form-check-input ms-1 me-2" type="checkbox" name="required_documents" 
+                                       value="{{ doc_key }}" id="doc_{{ doc_key }}" 
+                                       {% if doc_key in active_docs %}checked{% endif %}>
+                                <label class="form-check-label small fw-semibold text-dark" for="doc_{{ doc_key }}">
+                                    {{ doc_label }}
+                                </label>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mb-5">
+                <a href="{{ url_for('admin.loan_types') }}" class="btn btn-fincred-outline">
+                    <i class="bi bi-x me-1"></i> Cancel
+                </a>
+                <button type="submit" class="btn btn-fincred-teal px-4">
+                    <i class="bi bi-check2 me-1"></i> {{ 'Save Changes' if loan_type else 'Create Loan Category' }}
+                </button>
+            </div>
+        </form>
+
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,293 @@
+{% extends 'base.html' %}
+{% block title %}Upload Documents — FinCred AI{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-11">
+
+        <!-- Wizard Navigation -->
+        <div class="wizard-steps">
+            <a href="{{ url_for('applicant.applicant_details') }}" class="wizard-step done">
+                <span class="step-num"><i class="bi bi-check"></i></span>
+                <span>1. Profile</span>
+            </a>
+            <a href="{{ url_for('applicant.apply') }}" class="wizard-step done">
+                <span class="step-num"><i class="bi bi-check"></i></span>
+                <span>2. Loan Details</span>
+            </a>
+            <div class="wizard-step active">
+                <span class="step-num">3</span>
+                <span>3. Upload Documents</span>
+            </div>
+            <a href="{{ url_for('applicant.eligibility_results', app_id=application.id) }}" class="wizard-step">
+                <span class="step-num">4</span>
+                <span>4. Automated Assessment</span>
+            </a>
+        </div>
+
+        <!-- Application Summary Header -->
+        <div class="fc-card mb-4 bg-white">
+            <div class="fc-card-body d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                <div>
+                    <span class="badge bg-primary-subtle text-primary mb-1">Application #{{ application.application_number }}</span>
+                    <h4 class="fw-bold text-dark mb-0">
+                        {{ policy.bank_name }} — {{ policy.loan_type }}
+                    </h4>
+                    <div class="text-muted small mt-1">
+                        Applicant: <strong>{{ application.applicant.full_name }}</strong> |
+                        Requested: <strong>{{ application.loan_amount_requested | currency }}</strong> ({{ application.loan_tenure_months }} mos) |
+                        Declared Salary: <strong>{{ application.declared_monthly_salary | currency }}/mo</strong>
+                    </div>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{{ url_for('applicant.salary_analysis', app_id=application.id) }}" class="btn btn-fincred-outline btn-sm">
+                        <i class="bi bi-graph-up me-1"></i> Salary Analysis
+                    </a>
+                    <a href="{{ url_for('applicant.verify_documents', app_id=application.id) }}" class="btn btn-fincred-outline btn-sm">
+                        <i class="bi bi-search me-1"></i> Cross-Check Extraction
+                    </a>
+                    <a href="{{ url_for('applicant.eligibility_results', app_id=application.id) }}" class="btn btn-fincred-primary btn-sm">
+                        <i class="bi bi-check2-circle me-1"></i> View Results
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4 mb-4">
+            <!-- Left Column: Upload Box & Demo Documents -->
+            <div class="col-lg-6">
+                <!-- Upload Box -->
+                <div class="fc-card h-100">
+                    <div class="fc-card-header">
+                        <h5 class="fc-card-title"><i class="bi bi-cloud-arrow-up text-primary"></i> Upload Supporting Document</h5>
+                        <span class="badge bg-secondary-subtle text-secondary small">PDF, JPG, PNG up to 16MB</span>
+                    </div>
+                    <div class="fc-card-body">
+                        <form method="POST" action="{{ url_for('applicant.document_upload', app_id=application.id) }}" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label class="form-label-fincred">Document Category <span class="text-danger">*</span></label>
+                                <select class="form-select form-control-fincred" id="document_type" name="document_type" required>
+                                    <option value="salary_slip" {% if application.loan_type_code not in ('home_loan', 'loan_against_property') %}selected{% endif %}>Salary Slip (Recent 3 Months)</option>
+                                    <option value="bank_statement">Bank Account Statement</option>
+                                    <option value="increment_letter">Salary Increment / Appraisal Letter</option>
+                                    <option value="id_proof">Government ID Proof (PAN / Passport)</option>
+                                    <option value="address_proof">Address Proof (Aadhaar / Utility)</option>
+                                    <option value="property_docs" {% if application.loan_type_code in ('home_loan', 'loan_against_property') %}selected{% endif %}>Property Documents (Title Deed / Sale Agreement / Tax Receipt)</option>
+                                    <option value="tax_doc">Form 16 / ITR Tax Returns</option>
+                                    <option value="credit_report">Official Credit Report</option>
+                                    <option value="education_cert">Degree / Academic Certificate</option>
+                                    <option value="other">Other Lender-Specific Document</option>
+                                </select>
+                                <div id="doc_type_hint" class="text-muted small mt-1">
+                                    Upload your official monthly payslip (PDF/Image) showing Gross Pay, Net Pay, and Deductions.
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label-fincred">Select File from Device <span class="text-danger">*</span></label>
+                                <input type="file" class="form-control form-control-fincred" name="file" accept=".pdf,.png,.jpg,.jpeg" required>
+                                <div class="form-text small">PyMuPDF automatically parses digital PDFs; scanned documents/images are processed via Tesseract OCR.</div>
+                            </div>
+
+                            <button type="submit" class="btn btn-fincred-primary w-100 py-2">
+                                <i class="bi bi-upload me-1"></i> Upload & Extract Information Automatically
+                            </button>
+                        </form>
+
+                        <hr class="my-4">
+
+                        <!-- Quick 1-Click Synthetic Sample File Attachers -->
+                        <div class="bg-light p-3 rounded border">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <strong class="small text-dark"><i class="bi bi-lightning-charge-fill text-warning me-1"></i> Quick Test: Attach Synthetic Demo Docs</strong>
+                                <span class="badge bg-info-subtle text-info small">1-Click Parsing</span>
+                            </div>
+                            <p class="text-muted small mb-2" style="font-size: 0.78rem;">
+                                Test the automated PyMuPDF & OCR extraction pipeline immediately using generated demonstration records:
+                            </p>
+                            <div class="d-flex flex-wrap gap-2">
+                                <form method="POST" action="{{ url_for('applicant.attach_demo_doc', app_id=application.id) }}" class="d-inline">
+                                    <input type="hidden" name="demo_doc_type" value="salary_slip">
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                        <i class="bi bi-file-earmark-pdf text-danger me-1"></i> Attach Demo Payslip
+                                    </button>
+                                </form>
+
+                                <form method="POST" action="{{ url_for('applicant.attach_demo_doc', app_id=application.id) }}" class="d-inline">
+                                    <input type="hidden" name="demo_doc_type" value="bank_statement">
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                        <i class="bi bi-file-earmark-pdf text-danger me-1"></i> Attach Demo Statement
+                                    </button>
+                                </form>
+
+                                <form method="POST" action="{{ url_for('applicant.attach_demo_doc', app_id=application.id) }}" class="d-inline">
+                                    <input type="hidden" name="demo_doc_type" value="increment_letter">
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                        <i class="bi bi-file-earmark-pdf text-danger me-1"></i> Attach Demo Increment Letter
+                                    </button>
+                                </form>
+
+                                <form method="POST" action="{{ url_for('applicant.attach_demo_doc', app_id=application.id) }}" class="d-inline">
+                                    <input type="hidden" name="demo_doc_type" value="property_docs">
+                                    <button type="submit" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-house-door text-primary me-1"></i> Attach Demo Property Docs
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Mandatory Policy Checklist -->
+            <div class="col-lg-6">
+                <div class="fc-card h-100">
+                    <div class="fc-card-header">
+                        <h5 class="fc-card-title"><i class="bi bi-card-checklist text-teal"></i> Mandatory Bank Document Policy Checklist</h5>
+                        <span class="badge bg-secondary-subtle text-secondary small">Policy v{{ policy.policy_version }}</span>
+                    </div>
+                    <div class="fc-card-body">
+                        <p class="text-muted small mb-3">
+                            The selected bank scheme (<strong>{{ policy.bank_name }}</strong>) mandates the following documentation categories for formal underwriting:
+                        </p>
+
+                        <div class="list-group list-group-flush border rounded mb-3">
+                            {% for rdoc in required_docs %}
+                            {% set is_present = rdoc in uploaded_types or (rdoc in ('property_docs', 'property_documents') and ('property_docs' in uploaded_types or 'property_documents' in uploaded_types)) %}
+                            <div class="list-group-item d-flex align-items-center justify-content-between py-3">
+                                <div class="d-flex align-items-center gap-2">
+                                    {% if is_present %}
+                                    <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                                    {% else %}
+                                    <i class="bi bi-dash-circle text-muted fs-5"></i>
+                                    {% endif %}
+                                    <div>
+                                        <div class="fw-semibold text-dark">{{ 'Property Documents' if rdoc in ('property_docs', 'property_documents') else (rdoc | replace('_', ' ') | title) }}</div>
+                                        <div class="small text-muted" style="font-size: 0.78rem;">
+                                            {% if rdoc == 'salary_slip' %}3 consecutive months showing gross/net breakdown
+                                            {% elif rdoc == 'bank_statement' %}Bank account statement corroborating monthly salary deposits
+                                            {% elif rdoc == 'id_proof' %}Government ID verifying Date of Birth & Identity
+                                            {% elif rdoc == 'education_cert' %}Degree certificate or academic marksheet
+                                            {% elif rdoc in ('property_docs', 'property_documents') %}Registered Title Deed, Sale Agreement, or Property Tax Receipt
+                                            {% else %}Mandatory lender verification document
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div>
+                                    {% if is_present %}
+                                    <span class="badge bg-success-subtle text-success small">Uploaded</span>
+                                    {% else %}
+                                    <span class="badge bg-warning-subtle text-warning small">Pending Upload</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="alert alert-info py-2 px-3 small mb-0">
+                            <i class="bi bi-info-circle me-1"></i>
+                            <strong>Important Note:</strong> Missing required documents place the application into <em>"Pending Verification"</em> status rather than a confirmed failure.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Uploaded Documents Repository Table -->
+        <div class="fc-card">
+            <div class="fc-card-header">
+                <h5 class="fc-card-title"><i class="bi bi-files text-navy"></i> Uploaded Documents & Automated Extractions</h5>
+                <span class="badge bg-secondary-subtle text-secondary small">{{ application.documents | length }} Files Processed</span>
+            </div>
+            <div class="fc-card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-fincred">
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th>Original File</th>
+                                <th>Extraction Method</th>
+                                <th>Extracted Data Highlights</th>
+                                <th>Verification Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for doc in application.documents %}
+                            {% set ext = doc.extracted_record %}
+                            <tr>
+                                <td>
+                                    <span class="badge bg-light text-dark border">
+                                        {{ 'Property Documents' if doc.document_type in ('property_docs', 'property_documents') else (doc.document_type | replace('_', ' ') | title) }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="fw-semibold text-dark">{{ doc.original_filename }}</div>
+                                    <div class="small text-muted">{{ (doc.file_size / 1024) | round(1) }} KB | {{ doc.file_type | upper }} | {{ doc.uploaded_at | format_date }}</div>
+                                </td>
+                                <td>
+                                    {% if ext %}
+                                    <span class="badge bg-secondary-subtle text-secondary small">
+                                        <i class="bi bi-cpu me-1"></i>{{ ext.extraction_method }}
+                                    </span>
+                                    <div class="small text-muted" style="font-size: 0.72rem;">Conf: {{ ext.confidence_score }}%</div>
+                                    {% else %}
+                                    <span class="text-muted small">Pending</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if ext %}
+                                    <div class="small">
+                                        {% if ext.salary_amount_extracted %}
+                                        <div><span class="text-muted">{{ 'Consideration:' if doc.document_type in ('property_docs', 'property_documents') else 'Salary:' }}</span> <strong>{{ ext.salary_amount_extracted | currency }}</strong></div>
+                                        {% endif %}
+                                        {% if ext.company_name_extracted %}
+                                        <div><span class="text-muted">{{ 'Vendor / Entity:' if doc.document_type in ('property_docs', 'property_documents') else 'Employer:' }}</span> <span>{{ ext.company_name_extracted }}</span></div>
+                                        {% endif %}
+                                        {% if ext.applicant_name_extracted %}
+                                        <div><span class="text-muted">{{ 'Owner / Buyer:' if doc.document_type in ('property_docs', 'property_documents') else 'Name:' }}</span> <span>{{ ext.applicant_name_extracted }}</span></div>
+                                        {% endif %}
+                                    </div>
+                                    {% else %}
+                                    <span class="text-muted small">No structured data parsed.</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge-fincred {{ doc.verification_status | status_class }}">
+                                        {{ doc.verification_status | replace('_', ' ') | title }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{{ url_for('officer.preview_document', doc_id=doc.id) }}" target="_blank" class="btn btn-outline-secondary" title="View Document File">
+                                            <i class="bi bi-eye"></i> View
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-muted">
+                                    No documents uploaded yet. Please upload your salary slips and bank statements above.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="fc-card-header bg-light border-top d-flex justify-content-between">
+                <a href="{{ url_for('applicant.salary_analysis', app_id=application.id) }}" class="btn btn-fincred-outline">
+                    <i class="bi bi-graph-up me-1"></i> Proceed to Salary Analysis
+                </a>
+                <a href="{{ url_for('applicant.eligibility_results', app_id=application.id) }}" class="btn btn-fincred-primary">
+                    <i class="bi bi-arrow-right-circle me-1"></i> View Explainable Eligibility Assessment
+                </a>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

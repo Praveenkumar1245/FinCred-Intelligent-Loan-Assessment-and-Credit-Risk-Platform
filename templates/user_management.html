@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+{% block title %}User Management — FinCred AI{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-11">
+
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <div>
+                <span class="badge bg-danger-subtle text-danger mb-1">Administrative Access Control</span>
+                <h3 class="fw-bold text-dark mb-1">
+                    <i class="bi bi-people-fill text-primary me-2"></i> System User Management & Role Permissions
+                </h3>
+                <p class="text-muted small mb-0">
+                    Manage role-based authorization for Bank Officers, Administrators, and Loan Applicants.
+                </p>
+            </div>
+            <button class="btn btn-fincred-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                <i class="bi bi-person-plus me-1"></i> Create New User
+            </button>
+        </div>
+
+        <div class="fc-card">
+            <div class="fc-card-header">
+                <h5 class="fc-card-title"><i class="bi bi-shield-lock text-navy"></i> Registered Users</h5>
+                <span class="badge bg-secondary-subtle text-secondary small">{{ users | length }} Total Accounts</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-fincred">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Last Login</th>
+                            <th>Created</th>
+                            <th>Change Role</th>
+                            <th>Account Control</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for u in users %}
+                        <tr>
+                            <td>
+                                <div class="fw-bold text-dark">{{ u.full_name }}</div>
+                                <div class="small text-muted">{{ u.username }} ({{ u.email }})</div>
+                            </td>
+                            <td>
+                                <span class="role-badge {{ u.role }}">
+                                    {{ u.role | replace('_', ' ') }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if u.is_active %}
+                                <span class="badge bg-success-subtle text-success small"><i class="bi bi-check-circle me-1"></i>Active</span>
+                                {% else %}
+                                <span class="badge bg-danger-subtle text-danger small"><i class="bi bi-x-circle me-1"></i>Deactivated</span>
+                                {% endif %}
+                            </td>
+                            <td class="small text-muted">
+                                {{ u.last_login | format_date if u.last_login else 'Never' }}
+                            </td>
+                            <td class="small text-muted">
+                                {{ u.created_at | format_date }}
+                            </td>
+                            <td>
+                                <form method="POST" action="{{ url_for('admin.change_user_role', user_id=u.id) }}" class="d-inline">
+                                    <div class="input-group input-group-sm" style="max-width: 170px;">
+                                        <select name="role" class="form-select form-select-sm" style="font-size: 0.78rem;">
+                                            <option value="applicant" {% if u.role == 'applicant' %}selected{% endif %}>Applicant</option>
+                                            <option value="bank_officer" {% if u.role == 'bank_officer' %}selected{% endif %}>Bank Officer</option>
+                                            <option value="admin" {% if u.role == 'admin' %}selected{% endif %}>Admin</option>
+                                        </select>
+                                        <button type="submit" class="btn btn-outline-secondary btn-sm" title="Apply Role Change">Save</button>
+                                    </div>
+                                </form>
+                            </td>
+                            <td>
+                                <form method="POST" action="{{ url_for('admin.toggle_user_status', user_id=u.id) }}" class="d-inline">
+                                    {% if u.is_active %}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" {% if u.id == session.get('user_id') %}disabled title="Cannot deactivate self"{% endif %}>
+                                        <i class="bi bi-person-x"></i> Deactivate
+                                    </button>
+                                    {% else %}
+                                    <button type="submit" class="btn btn-sm btn-outline-success">
+                                        <i class="bi bi-person-check"></i> Activate
+                                    </button>
+                                    {% endif %}
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Modal: Add New User -->
+<div class="modal fade" id="addUserModal" tabindex="-1" aria-labelledby="addUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold text-dark" id="addUserModalLabel">
+                    <i class="bi bi-person-plus text-primary me-2"></i> Create New User Account
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin.user_management') }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label-fincred">Full Legal Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control form-control-fincred" name="full_name" placeholder="e.g. Ramesh Kumar" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label-fincred">Username <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control form-control-fincred" name="username" placeholder="e.g. ramesh.kumar" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label-fincred">Corporate / Personal Email <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control form-control-fincred" name="email" placeholder="user@fincred.ai" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label-fincred">Assigned User Role <span class="text-danger">*</span></label>
+                        <select class="form-select form-control-fincred" name="role" required>
+                            <option value="applicant">Applicant (Loan Inquiries)</option>
+                            <option value="bank_officer" selected>Bank Officer (Credit Underwriting)</option>
+                            <option value="admin">Administrator (Full Access)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label-fincred">Initial Password <span class="text-danger">*</span></label>
+                        <input type="password" class="form-control form-control-fincred" name="password" value="User@123" required>
+                        <div class="form-text small">Default demo password: <code>User@123</code></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-fincred-primary btn-sm px-3">Create User Account</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

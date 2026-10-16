@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+{% block title %}Credit Underwriting Queue — FinCred AI{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-11">
+
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <div>
+                <span class="badge bg-primary-subtle text-primary mb-1">Credit Officer Scrutiny Queue</span>
+                <h3 class="fw-bold text-dark mb-1">
+                    <i class="bi bi-clipboard2-check text-primary me-2"></i> Application Review & Verification Queue
+                </h3>
+                <p class="text-muted small mb-0">Inspect applicant documents, correct extraction variances, review bank rules, and record formal decisions.</p>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{{ url_for('applicant.dashboard') }}" class="btn btn-fincred-outline btn-sm">
+                    <i class="bi bi-speedometer2 me-1"></i> Dashboard
+                </a>
+            </div>
+        </div>
+
+        <!-- Filter Pills -->
+        <div class="d-flex gap-2 mb-3 flex-wrap">
+            <a href="{{ url_for('officer.officer_queue') }}" class="btn btn-sm {{ 'btn-fincred-primary' if not current_filter else 'btn-outline-secondary' }}">
+                All ({{ applications | length }})
+            </a>
+            <a href="{{ url_for('officer.officer_queue', status='submitted') }}" class="btn btn-sm {{ 'btn-fincred-primary' if current_filter == 'submitted' else 'btn-outline-secondary' }}">
+                Submitted
+            </a>
+            <a href="{{ url_for('officer.officer_queue', status='manual_review') }}" class="btn btn-sm {{ 'btn-fincred-primary' if current_filter == 'manual_review' else 'btn-outline-secondary' }}">
+                Manual Review
+            </a>
+            <a href="{{ url_for('officer.officer_queue', status='pending_verification') }}" class="btn btn-sm {{ 'btn-fincred-primary' if current_filter == 'pending_verification' else 'btn-outline-secondary' }}">
+                Pending Verification
+            </a>
+            <a href="{{ url_for('officer.officer_queue', status='meets_requirements') }}" class="btn btn-sm {{ 'btn-fincred-primary' if current_filter == 'meets_requirements' else 'btn-outline-secondary' }}">
+                Meets Requirements
+            </a>
+            <a href="{{ url_for('officer.officer_queue', status='does_not_meet') }}" class="btn btn-sm {{ 'btn-fincred-primary' if current_filter == 'does_not_meet' else 'btn-outline-secondary' }}">
+                Does Not Meet
+            </a>
+        </div>
+
+        <div class="fc-card">
+            <div class="table-responsive">
+                <table class="table table-fincred">
+                    <thead>
+                        <tr>
+                            <th>Application ID</th>
+                            <th>Applicant</th>
+                            <th>Bank & Facility</th>
+                            <th>Requested Loan</th>
+                            <th>Declared Salary</th>
+                            <th>Status</th>
+                            <th>Officer Decision</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for app in applications %}
+                        <tr>
+                            <td class="fw-semibold text-primary">{{ app.application_number }}</td>
+                            <td>
+                                <div class="fw-bold text-dark">{{ app.applicant.full_name }}</div>
+                                <div class="small text-muted">{{ app.company_name }}</div>
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark border mb-1">
+                                    <i class="bi {{ app.loan_type_model.icon if app.loan_type_model else 'bi-wallet2' }} me-1 text-primary"></i>
+                                    {{ app.loan_category_name }}
+                                </span>
+                                <div class="text-dark">{{ app.bank_requirement.bank_name }}</div>
+                                <div class="small text-muted">{{ app.bank_requirement.loan_type }} (v{{ app.policy_version_used }})</div>
+                            </td>
+                            <td>
+                                <div class="fw-bold">{{ app.loan_amount_requested | currency }}</div>
+                                <div class="small text-muted">{{ app.loan_tenure_months }} mos</div>
+                            </td>
+                            <td>{{ app.declared_monthly_salary | currency }}</td>
+                            <td>
+                                <span class="badge-fincred {{ app.status | status_class }}">
+                                    {{ app.status | replace('_', ' ') | title }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if app.officer_decision and app.officer_decision != 'pending' %}
+                                <span class="badge {{ 'bg-success-subtle text-success' if app.officer_decision == 'approved' else ('bg-danger-subtle text-danger' if app.officer_decision == 'rejected' else 'bg-warning-subtle text-warning') }}">
+                                    {{ app.officer_decision | replace('_', ' ') | title }}
+                                </span>
+                                {% else %}
+                                <span class="text-muted small">Pending Scrutiny</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('officer.review_application', app_id=app.id) }}" class="btn btn-sm btn-fincred-primary">
+                                    <i class="bi bi-pencil-square me-1"></i> Review & Underwrite
+                                </a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center py-4 text-muted">No applications found matching the filter criteria.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

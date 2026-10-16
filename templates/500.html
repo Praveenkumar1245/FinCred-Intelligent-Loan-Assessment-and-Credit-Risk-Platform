@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block title %}System Error — FinCred AI{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center py-5">
+    <div class="col-md-6 text-center">
+        <div class="display-1 fw-bold text-danger mb-2">500</div>
+        <h4 class="fw-bold text-dark mb-3">Internal System Exception</h4>
+        <p class="text-muted mb-4">An unexpected processing error occurred. The transaction has been rolled back and logged for administrative inspection.</p>
+        <a href="{{ url_for('applicant.dashboard') }}" class="btn btn-fincred-primary">
+            <i class="bi bi-house me-1"></i> Return to Dashboard
+        </a>
+    </div>
+</div>
+{% endblock %}

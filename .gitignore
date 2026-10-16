@@ -1,0 +1,29 @@
+# Byte-compiled / cache files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+
+# Environment & Secrets
+.env
+.env.local
+
+# Instance database (generated automatically on first run)
+instance/*.db
+instance/*.sqlite
+instance/*.sqlite3
+
+# Runtime user uploads (sample_docs are preserved)
+uploads/app_*
+
+# Operating system / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

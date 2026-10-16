@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block title %}Request Error — FinCred AI{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center py-5">
+    <div class="col-md-6 text-center">
+        <i class="bi bi-exclamation-octagon-fill text-warning display-3 mb-3 d-block"></i>
+        <h4 class="fw-bold text-dark mb-3">Request Processing Issue</h4>
+        <p class="text-muted mb-4">{{ message or 'A request constraint was not satisfied. Please verify input files or data and retry.' }}</p>
+        <a href="{{ url_for('applicant.dashboard') }}" class="btn btn-fincred-primary">
+            <i class="bi bi-house me-1"></i> Return to Dashboard
+        </a>
+    </div>
+</div>
+{% endblock %}

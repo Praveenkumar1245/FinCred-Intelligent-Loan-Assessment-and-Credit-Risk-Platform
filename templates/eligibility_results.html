@@ -1,0 +1,747 @@
+{% extends 'base.html' %}
+{% block title %}Assessment Results: {{ application.application_number }} — FinCred AI{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-11">
+
+        <!-- Progress Wizard -->
+        <div class="wizard-steps d-none d-md-flex mb-4">
+            <a href="{{ url_for('applicant.applicant_details') }}" class="wizard-step done">
+                <span class="step-num"><i class="bi bi-check"></i></span>
+                <span>1. Profile</span>
+            </a>
+            <a href="{{ url_for('applicant.apply', loan_type=application.loan_type_code) }}" class="wizard-step done">
+                <span class="step-num"><i class="bi bi-check"></i></span>
+                <span>2. {{ application.loan_category_name }}</span>
+            </a>
+            <a href="{{ url_for('applicant.document_upload', app_id=application.id) }}" class="wizard-step done">
+                <span class="step-num"><i class="bi bi-check"></i></span>
+                <span>3. Upload Documents</span>
+            </a>
+            <div class="wizard-step active">
+                <span class="step-num">4</span>
+                <span>4. Assessment Results</span>
+            </div>
+        </div>
+
+        <!-- Header -->
+        <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+            <div>
+                <span class="badge bg-primary-subtle text-primary mb-1">
+                    <i class="bi {{ application.loan_type_model.icon if application.loan_type_model else 'bi-wallet2' }} me-1"></i>
+                    {{ application.loan_category_name }} Underwriting Assessment
+                </span>
+                <h3 class="fw-bold text-dark mb-1">
+                    <i class="bi bi-card-checklist text-primary me-2"></i> Comprehensive Eligibility Determination
+                </h3>
+                <p class="text-muted small mb-0">
+                    Application <strong>#{{ application.application_number }}</strong> — {{ application.bank_requirement.bank_name }} ({{ application.bank_requirement.loan_type }} | Policy v{{ application.policy_version_used }})
+                </p>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{{ url_for('applicant.document_upload', app_id=application.id) }}" class="btn btn-fincred-outline btn-sm">
+                    <i class="bi bi-upload me-1"></i> Manage Documents
+                </a>
+                <a href="{{ url_for('applicant.salary_analysis', app_id=application.id) }}" class="btn btn-fincred-outline btn-sm">
+                    <i class="bi bi-graph-up me-1"></i> Financial Analysis
+                </a>
+                {% if session.get('role') in ('bank_officer', 'admin') %}
+                <a href="{{ url_for('officer.review_application', app_id=application.id) }}" class="btn btn-fincred-primary btn-sm">
+                    <i class="bi bi-pencil-square me-1"></i> Officer Review
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- =========================================================================
+             1. OUTCOME BANNER (1 of 4 Required Standard Statuses)
+             ========================================================================= -->
+        <div class="outcome-banner {{ application.status }} shadow-sm mb-4">
+            <div class="d-flex align-items-start justify-content-between flex-wrap gap-3">
+                <div>
+                    {% if application.status == 'meets_requirements' %}
+                    <div class="outcome-title">
+                        <i class="bi bi-check-circle-fill me-2"></i> Meets Requirements
+                    </div>
+                    <p class="outcome-description">
+                        All lender eligibility criteria, loan-to-value limits, debt capacity thresholds, and required documentation have been fully satisfied. Your application qualifies for final bank sanctioning.
+                    </p>
+                    {% elif application.status == 'does_not_meet' %}
+                    <div class="outcome-title">
+                        <i class="bi bi-x-circle-fill me-2"></i> Does Not Meet Requirements
+                    </div>
+                    <p class="outcome-description">
+                        One or more mandatory bank policy rules (such as minimum income, LTV cap, or business vintage) are not satisfied. Please review the detailed shortfalls and corrective actions below.
+                    </p>
+                    {% elif application.status == 'pending_verification' %}
+                    <div class="outcome-title">
+                        <i class="bi bi-hourglass-split me-2"></i> Pending Verification
+                    </div>
+                    <p class="outcome-description">
+                        Mandatory documents or verified data points are currently missing or awaiting verification. In accordance with policy, missing information does not lead to rejection; please upload the pending documents to complete assessment.
+                    </p>
+                    {% else %}
+                    <div class="outcome-title">
+                        <i class="bi bi-person-check-fill me-2"></i> Manual Review Required
+                    </div>
+                    <p class="outcome-description">
+                        Your application involves special underwriting factors, high loan amount, or document variance requiring individual scrutiny and discretionary sign-off by a designated credit officer.
+                    </p>
+                    {% endif %}
+                </div>
+                <div>
+                    <span class="badge bg-white text-dark border p-2 text-uppercase fw-bold" style="letter-spacing: 0.5px;">
+                        Final Status: {{ application.status | replace('_', ' ') }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Non-binding Disclaimer Callout -->
+        <div class="alert alert-light border py-2 px-3 small text-muted mb-4 d-flex align-items-center gap-2">
+            <i class="bi bi-info-circle text-primary fs-5"></i>
+            <div>
+                <strong>Important Notice:</strong> This explainable assessment represents a <em>preliminary eligibility determination</em> computed via lender policy rules and document cross-checks. It does not guarantee approval or constitute a legally binding sanction until verified by authorized bank officers.
+            </div>
+        </div>
+
+        <!-- =========================================================================
+             2. LOAN APPLICATION & VERIFIED APPLICANT SNAPSHOT
+             ========================================================================= -->
+        <div class="row g-3 mb-4">
+            <div class="col-lg-6">
+                <div class="fc-card h-100">
+                    <div class="fc-card-header bg-white">
+                        <h6 class="fc-card-title small mb-0"><i class="bi bi-info-circle text-primary"></i> Application & Terms Summary</h6>
+                    </div>
+                    <div class="fc-card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-borderless mb-0">
+                                <tbody>
+                                    <tr>
+                                        <td class="text-muted" style="width: 40%;">Selected Loan Type:</td>
+                                        <td>
+                                            <span class="badge bg-primary-subtle text-primary fw-semibold">
+                                                <i class="bi {{ application.loan_type_model.icon if application.loan_type_model else 'bi-wallet2' }} me-1"></i>
+                                                {{ application.loan_category_name }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted">Target Lender Scheme:</td>
+                                        <td class="fw-semibold text-dark">{{ application.bank_requirement.bank_name }} — {{ application.bank_requirement.loan_type }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted">Requested Loan Amount:</td>
+                                        <td class="fw-bold fs-6 text-primary">{{ application.loan_amount_requested | currency }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted">Repayment Tenure:</td>
+                                        <td><strong>{{ application.loan_tenure_months }}</strong> Months ({{ (application.loan_tenure_months / 12) | round(1) }} Years)</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted">Estimated Monthly EMI:</td>
+                                        <td class="fw-bold text-dark">{{ assessment.estimated_new_emi | currency }}/month</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted">Scheme Interest Rate:</td>
+                                        <td><strong>{{ application.bank_requirement.interest_rate_pct }}%</strong> p.a.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="fc-card h-100">
+                    <div class="fc-card-header bg-white">
+                        <h6 class="fc-card-title small mb-0"><i class="bi bi-person-badge text-teal"></i> Verified Applicant Profile</h6>
+                    </div>
+                    <div class="fc-card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-borderless mb-0">
+                                <tbody>
+                                    <tr>
+                                        <td class="text-muted" style="width: 40%;">Applicant Name:</td>
+                                        <td class="fw-bold text-dark">{{ application.applicant.full_name }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted">Employer / Entity:</td>
+                                        <td>{{ application.company_name }} ({{ application.employment_type }})</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted">Current Monthly Income:</td>
+                                        <td>
+                                            <strong class="text-success">{{ assessment.current_verified_income | currency }}</strong>
+                                            {% if assessment.verified_salary_extracted %}
+                                            <span class="badge bg-success-subtle text-success small ms-1">Payslip Verified</span>
+                                            {% else %}
+                                            <span class="badge bg-secondary-subtle text-secondary small ms-1">Self Declared</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted">Existing Monthly EMIs:</td>
+                                        <td>{{ application.existing_monthly_emis | currency }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted">Projected DTI Ratio:</td>
+                                        <td>
+                                            <strong>{{ assessment.projected_dti_ratio }}%</strong>
+                                            <span class="small text-muted">(Bank Limit: {{ application.bank_requirement.max_dti_ratio }}%)</span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted">Credit Bureau Rating:</td>
+                                        <td>
+                                            {% if application.credit_score %}
+                                            <span class="badge bg-info-subtle text-info fw-bold">{{ application.credit_score }}</span>
+                                            {% else %}
+                                            <span class="text-muted small">Not declared</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- =========================================================================
+             3. LOAN-SPECIFIC CALCULATIONS & COLLATERAL / ASSET DETAILS
+             ========================================================================= -->
+        {% set ldata = application.loan_specific_data %}
+        {% set lcode = application.loan_type_code %}
+        <div class="fc-card mb-4 border-start border-4 border-teal">
+            <div class="fc-card-header bg-light d-flex justify-content-between align-items-center">
+                <h5 class="fc-card-title">
+                    <i class="bi {{ application.loan_type_model.icon if application.loan_type_model else 'bi-calculator' }} text-teal"></i>
+                    Loan-Specific Underwriting Calculations ({{ application.loan_category_name }})
+                </h5>
+                <span class="badge bg-teal-subtle text-teal small">Custom Risk Logic</span>
+            </div>
+            <div class="fc-card-body">
+                <div class="row g-3">
+
+                    <!-- GOLD LOAN CALCULATIONS -->
+                    {% if lcode == 'gold_loan' %}
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded text-center">
+                            <div class="text-muted small">Pledged Gold Weight</div>
+                            <div class="fs-4 fw-bold text-dark">{{ ldata.get('gold_weight_grams', 0) }} g</div>
+                            <div class="text-muted small">Purity: {{ ldata.get('gold_purity_karats', '22K') }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded text-center">
+                            <div class="text-muted small">Assessed Market Value</div>
+                            <div class="fs-4 fw-bold text-primary">{{ assessment.collateral_valuation | currency }}</div>
+                            <div class="text-muted small">Rate: ₹{{ ldata.get('gold_rate_per_gram', 6800) | round(0) }}/g</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded text-center">
+                            <div class="text-muted small">Calculated LTV Ratio</div>
+                            <div class="fs-4 fw-bold {{ 'text-success' if assessment.calculated_ltv_ratio and assessment.calculated_ltv_ratio <= 75 else 'text-danger' }}">
+                                {{ assessment.calculated_ltv_ratio or 0 }}%
+                            </div>
+                            <div class="text-muted small">Statutory Cap: 75.0%</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded text-center">
+                            <div class="text-muted small">Maximum Allowable Loan</div>
+                            <div class="fs-4 fw-bold text-success">{{ (assessment.collateral_valuation * 0.75) | currency }}</div>
+                            <div class="text-muted small">75% RBI Regulatory Cap</div>
+                        </div>
+                    </div>
+
+                    <!-- HOME LOAN CALCULATIONS -->
+                    {% elif lcode == 'home_loan' %}
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded text-center">
+                            <div class="text-muted small">Property Purchase Value</div>
+                            <div class="fs-4 fw-bold text-dark">{{ assessment.collateral_valuation | currency }}</div>
+                            <div class="text-muted small">{{ ldata.get('property_type', 'Residential') }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded text-center">
+                            <div class="text-muted small">Down Payment Contribution</div>
+                            <div class="fs-4 fw-bold text-primary">{{ ldata.get('down_payment', 0) | currency }}</div>
+                            <div class="text-muted small">Margin: {{ assessment.down_payment_pct or 0 }}%</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded text-center">
+                            <div class="text-muted small">Calculated Housing LTV</div>
+                            <div class="fs-4 fw-bold {{ 'text-success' if assessment.calculated_ltv_ratio and assessment.calculated_ltv_ratio <= application.bank_requirement.max_ltv_ratio else 'text-danger' }}">
+                                {{ assessment.calculated_ltv_ratio or 0 }}%
+                            </div>
+                            <div class="text-muted small">Policy Ceiling: {{ application.bank_requirement.max_ltv_ratio }}%</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded text-center">
+                            <div class="text-muted small">Builder & Title Approval</div>
+                            <div class="fs-5 fw-bold text-success mt-1">
+                                {% if ldata.get('is_approved_builder') %}
+                                <i class="bi bi-check-circle-fill me-1"></i> RERA Approved
+                                {% else %}
+                                <i class="bi bi-info-circle me-1 text-warning"></i> Verification Req.
+                                {% endif %}
+                            </div>
+                            <div class="text-muted small text-truncate" title="{{ ldata.get('property_address') }}">
+                                {{ ldata.get('property_address', 'Address on file') }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- VEHICLE LOAN CALCULATIONS -->
+                    {% elif lcode == 'vehicle_loan' %}
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded text-center">
+                            <div class="text-muted small">Vehicle Quotation Price</div>
+                            <div class="fs-4 fw-bold text-dark">{{ assessment.collateral_valuation | currency }}</div>
+                            <div class="text-muted small">{{ ldata.get('vehicle_make_model', 'Vehicle') }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded text-center">
+                            <div class="text-muted small">Down Payment Paid</div>
+                            <div class="fs-4 fw-bold text-primary">{{ ldata.get('vehicle_down_payment', 0) | currency }}</div>
+                            <div class="text-muted small">Margin: {{ assessment.down_payment_pct or 0 }}%</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded text-center">
+                            <div class="text-muted small">Vehicle Financing LTV</div>
+                            <div class="fs-4 fw-bold {{ 'text-success' if assessment.calculated_ltv_ratio and assessment.calculated_ltv_ratio <= application.bank_requirement.max_ltv_ratio else 'text-danger' }}">
+                                {{ assessment.calculated_ltv_ratio or 0 }}%
+                            </div>
+                            <div class="text-muted small">Policy Cap: {{ application.bank_requirement.max_ltv_ratio }}%</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded text-center">
+                            <div class="text-muted small">Vehicle Category</div>
+                            <div class="fs-6 fw-bold text-dark mt-1">{{ ldata.get('vehicle_type', 'Car') }}</div>
+                            <div class="text-muted small">{{ 'Brand New' if ldata.get('is_new_vehicle') else 'Pre-Owned' }}</div>
+                        </div>
+                    </div>
+
+                    <!-- BUSINESS LOAN CALCULATIONS -->
+                    {% elif lcode == 'business_loan' %}
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded text-center">
+                            <div class="text-muted small">Annual Gross Turnover</div>
+                            <div class="fs-4 fw-bold text-primary">{{ ldata.get('annual_turnover', 0) | currency }}</div>
+                            <div class="text-muted small">Min Req: {{ application.bank_requirement.min_annual_turnover | currency }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded text-center">
+                            <div class="text-muted small">Business Vintage</div>
+                            <div class="fs-4 fw-bold text-dark">{{ ldata.get('business_vintage_months', 0) }} Mos</div>
+                            <div class="text-muted small">Min Vintage: {{ application.bank_requirement.min_business_vintage_months }} Mos</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded text-center">
+                            <div class="text-muted small">Turnover Coverage Ratio</div>
+                            <div class="fs-4 fw-bold text-success">{{ assessment.business_turnover_ratio or 0 }}x</div>
+                            <div class="text-muted small">Turnover / Requested Loan</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded text-center">
+                            <div class="text-muted small">Annual Net Profit (PAT)</div>
+                            <div class="fs-4 fw-bold text-dark">{{ ldata.get('annual_net_profit', 0) | currency }}</div>
+                            <div class="text-muted small">GSTIN: {{ ldata.get('gst_number', 'N/A') }}</div>
+                        </div>
+                    </div>
+
+                    <!-- LOAN AGAINST PROPERTY (LAP) CALCULATIONS -->
+                    {% elif lcode == 'loan_against_property' %}
+                    <div class="col-md-4">
+                        <div class="p-3 bg-light rounded text-center">
+                            <div class="text-muted small">Property Fair Market Value</div>
+                            <div class="fs-4 fw-bold text-dark">{{ assessment.collateral_valuation | currency }}</div>
+                            <div class="text-muted small">{{ ldata.get('property_city', 'City') }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 bg-light rounded text-center">
+                            <div class="text-muted small">Calculated Mortgage LTV</div>
+                            <div class="fs-4 fw-bold {{ 'text-success' if assessment.calculated_ltv_ratio and assessment.calculated_ltv_ratio <= application.bank_requirement.max_ltv_ratio else 'text-danger' }}">
+                                {{ assessment.calculated_ltv_ratio or 0 }}%
+                            </div>
+                            <div class="text-muted small">Max Policy LTV: {{ application.bank_requirement.max_ltv_ratio }}%</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 bg-light rounded text-center">
+                            <div class="text-muted small">Collateral Property Type</div>
+                            <div class="fs-5 fw-bold text-teal mt-1">{{ ldata.get('lap_property_type', 'Residential') }}</div>
+                            <div class="text-muted small">Title Search & Valuation Active</div>
+                        </div>
+                    </div>
+
+                    <!-- AGRICULTURE LOAN CALCULATIONS -->
+                    {% elif lcode == 'agriculture_loan' %}
+                    <div class="col-md-4">
+                        <div class="p-3 bg-light rounded text-center">
+                            <div class="text-muted small">Agricultural Landholding</div>
+                            <div class="fs-4 fw-bold text-dark">{{ ldata.get('land_holding_acres', 0) }} Acres</div>
+                            <div class="text-muted small">Min Req: {{ application.bank_requirement.min_land_acres }} Acres</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 bg-light rounded text-center">
+                            <div class="text-muted small">Annual Farm Revenue</div>
+                            <div class="fs-4 fw-bold text-primary">{{ ldata.get('annual_farm_income', 0) | currency }}</div>
+                            <div class="text-muted small">{{ ldata.get('crop_activity_type', 'Crop Cultivation') }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 bg-light rounded text-center">
+                            <div class="text-muted small">Cultivator Title Status</div>
+                            <div class="fs-5 fw-bold text-success mt-1">{{ ldata.get('ownership_status', 'Owner-Cultivator') }}</div>
+                            <div class="text-muted small">Revenue Patta / 7/12 records</div>
+                        </div>
+                    </div>
+
+                    <!-- EDUCATION LOAN CALCULATIONS -->
+                    {% elif lcode == 'education_loan' %}
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded text-center">
+                            <div class="text-muted small">Course Program</div>
+                            <div class="fs-6 fw-bold text-dark mt-1 text-truncate" title="{{ ldata.get('course_name') }}">{{ ldata.get('course_name', 'Degree Program') }}</div>
+                            <div class="text-muted small">{{ ldata.get('study_location', 'Location') }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded text-center">
+                            <div class="text-muted small">Total Academic Cost</div>
+                            <div class="fs-4 fw-bold text-primary">{{ ldata.get('total_course_fee', 0) | currency }}</div>
+                            <div class="text-muted small">Tuition & Living</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded text-center">
+                            <div class="text-muted small">Co-Applicant Income</div>
+                            <div class="fs-4 fw-bold text-success">{{ ldata.get('co_applicant_income', 0) | currency }}/mo</div>
+                            <div class="text-muted small">{{ ldata.get('co_applicant_name', 'Guarantor') }} ({{ ldata.get('co_applicant_relationship', 'Parent') }})</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded text-center">
+                            <div class="text-muted small">Academic Standing</div>
+                            <div class="fs-5 fw-bold {{ 'text-danger' if application.applicant.backlog_count > 0 else 'text-success' }} mt-1">
+                                {{ application.applicant.backlog_count }} Active Backlogs
+                            </div>
+                            <div class="text-muted small">{{ 'Strict Clearance Req.' if application.bank_requirement.strict_backlog_policy else 'Flexible Policy' }}</div>
+                        </div>
+                    </div>
+
+                    <!-- PERSONAL LOAN (UNSECURED) -->
+                    {% else %}
+                    <div class="col-md-4">
+                        <div class="p-3 bg-light rounded text-center">
+                            <div class="text-muted small">Monthly Net Salary</div>
+                            <div class="fs-4 fw-bold text-primary">{{ assessment.current_verified_income | currency }}</div>
+                            <div class="text-muted small">Min Req: {{ application.bank_requirement.min_monthly_income | currency }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 bg-light rounded text-center">
+                            <div class="text-muted small">Debt Burden (DTI)</div>
+                            <div class="fs-4 fw-bold {{ 'text-success' if assessment.projected_dti_ratio <= application.bank_requirement.max_dti_ratio else 'text-danger' }}">
+                                {{ assessment.projected_dti_ratio }}%
+                            </div>
+                            <div class="text-muted small">Max Policy Limit: {{ application.bank_requirement.max_dti_ratio }}%</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 bg-light rounded text-center">
+                            <div class="text-muted small">Available Surplus Cash Flow</div>
+                            <div class="fs-4 fw-bold text-success">{{ (assessment.current_verified_income - assessment.projected_total_emi) | currency }}/mo</div>
+                            <div class="text-muted small">Unsecured Repayment Buffer</div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                </div>
+            </div>
+        </div>
+
+        <!-- =========================================================================
+             4. MANDATORY DOCUMENTS & COMPLIANCE CHECKLIST
+             ========================================================================= -->
+        <div class="fc-card mb-4">
+            <div class="fc-card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="fc-card-title mb-0">
+                    <i class="bi bi-file-earmark-check text-navy"></i> Document Compliance for {{ application.loan_category_name }}
+                </h5>
+                <div>
+                    {% if missing_docs %}
+                    <span class="badge bg-warning-subtle text-warning">
+                        <i class="bi bi-exclamation-triangle me-1"></i> {{ missing_docs | length }} Document(s) Missing
+                    </span>
+                    {% else %}
+                    <span class="badge bg-success-subtle text-success">
+                        <i class="bi bi-check-circle me-1"></i> All Required Documents Uploaded
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="fc-card-body">
+                <p class="text-muted small mb-3">
+                    Under {{ application.bank_requirement.bank_name }}'s official underwriting criteria (Policy v{{ application.policy_version_used }}), the following documents are mandated:
+                </p>
+
+                <div class="row g-2 mb-3">
+                    {% for rdoc in required_docs %}
+                    {% set is_missing = rdoc in missing_docs %}
+                    <div class="col-md-6">
+                        <div class="p-3 border rounded d-flex justify-content-between align-items-center {{ 'bg-light border-warning' if is_missing else 'bg-white border-success' }}">
+                            <div class="d-flex align-items-center gap-2">
+                                {% if is_missing %}
+                                <i class="bi bi-x-circle text-warning fs-5"></i>
+                                {% else %}
+                                <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                                {% endif %}
+                                <div>
+                                    <div class="fw-semibold text-dark">{{ rdoc | replace('_', ' ') | title }}</div>
+                                    <div class="small text-muted" style="font-size: 0.76rem;">
+                                        {% if is_missing %}
+                                        Action required: Upload this document to satisfy lender policy.
+                                        {% else %}
+                                        Attached and verified on system.
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                {% if is_missing %}
+                                <a href="{{ url_for('applicant.document_upload', app_id=application.id) }}" class="btn btn-sm btn-outline-warning">
+                                    <i class="bi bi-upload"></i> Upload
+                                </a>
+                                {% else %}
+                                <span class="badge bg-success-subtle text-success small">Verified</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                {% if missing_docs %}
+                <div class="alert alert-warning py-2 px-3 small mb-0 d-flex align-items-center gap-2">
+                    <i class="bi bi-info-circle-fill text-warning fs-5"></i>
+                    <div>
+                        <strong>Why your status is "Pending Verification":</strong> In accordance with fair lending principles, FinCred AI does not reject an applicant solely due to missing paperwork. Upload the missing documents above to resume evaluation.
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- =========================================================================
+             5. DOCUMENT EXTRACTION INCONSISTENCIES / DISCREPANCIES (If any)
+             ========================================================================= -->
+        {% if cross_check and cross_check.has_discrepancy %}
+        <div class="fc-card mb-4 border-start border-4 border-warning">
+            <div class="fc-card-header bg-white">
+                <h5 class="fc-card-title text-warning">
+                    <i class="bi bi-exclamation-triangle-fill me-1"></i> Data Inconsistencies Detected
+                </h5>
+                <span class="badge bg-warning-subtle text-warning small">{{ cross_check.discrepancies | length }} Discrepancy Found</span>
+            </div>
+            <div class="fc-card-body">
+                <p class="text-muted small mb-3">
+                    Automated OCR and PyMuPDF text parsing flagged differences between your declared application information and uploaded documents:
+                </p>
+                <div class="list-group list-group-flush mb-3">
+                    {% for disc in cross_check.discrepancies %}
+                    <div class="list-group-item px-0 py-2">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <strong class="text-dark">{{ disc.field }} Mismatch:</strong>
+                            <span class="badge bg-warning text-dark small">{{ disc.severity | upper }} PRIORITY</span>
+                        </div>
+                        <div class="small text-muted mb-1">{{ disc.explanation }}</div>
+                        <div class="small">
+                            <span class="text-muted">Declared:</span> <span class="fw-semibold">{{ disc.declared }}</span> |
+                            <span class="text-muted">Document Extracted:</span> <span class="fw-semibold text-danger">{{ disc.extracted }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="small text-muted fst-italic">
+                    {{ cross_check.disclaimer }}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- =========================================================================
+             6. ML RISK SCORE & CRITERIA METRICS
+             ========================================================================= -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <div class="fc-card h-100">
+                    <div class="fc-card-header">
+                        <h6 class="fc-card-title small"><i class="bi bi-cpu text-teal"></i> FinCred AI Approval Probability</h6>
+                    </div>
+                    <div class="fc-card-body text-center">
+                        <div class="fs-1 fw-bold {{ 'text-success' if assessment.ml_approval_probability >= 70 else ('text-warning' if assessment.ml_approval_probability >= 45 else 'text-danger') }}">
+                            {{ assessment.ml_approval_probability }}%
+                        </div>
+                        <div class="small text-muted mb-2">Model Confidence Score</div>
+                        <div class="progress" style="height: 6px;">
+                            <div class="progress-bar {{ 'bg-success' if assessment.ml_approval_probability >= 70 else ('bg-warning' if assessment.ml_approval_probability >= 45 else 'bg-danger') }}"
+                                 role="progressbar" style="width: {{ assessment.ml_approval_probability }}%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="fc-card h-100">
+                    <div class="fc-card-header">
+                        <h6 class="fc-card-title small"><i class="bi bi-shield-exclamation text-navy"></i> Credit Risk Classification</h6>
+                    </div>
+                    <div class="fc-card-body text-center">
+                        <div class="fs-1 fw-bold {{ 'text-success' if assessment.ml_risk_tier == 'Low' else ('text-warning' if assessment.ml_risk_tier == 'Moderate' else 'text-danger') }}">
+                            {{ assessment.ml_risk_tier }} Risk
+                        </div>
+                        <div class="small text-muted mb-2">Default Risk Probability: {{ assessment.ml_risk_score }}%</div>
+                        <span class="badge bg-light text-dark border">
+                            Trained on scikit-learn banking models
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="fc-card h-100">
+                    <div class="fc-card-header">
+                        <h6 class="fc-card-title small"><i class="bi bi-pie-chart text-primary"></i> Requirement Checks Summary</h6>
+                    </div>
+                    <div class="fc-card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-1 small">
+                            <span class="text-success"><i class="bi bi-check-circle-fill me-1"></i> Satisfied Requirements:</span>
+                            <strong>{{ pass_count }}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-1 small">
+                            <span class="text-danger"><i class="bi bi-x-circle-fill me-1"></i> Failed Requirements:</span>
+                            <strong>{{ fail_count }}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-1 small">
+                            <span class="text-warning"><i class="bi bi-hourglass-split me-1"></i> Pending Verification:</span>
+                            <strong>{{ pending_count }}</strong>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center small">
+                            <span class="text-info"><i class="bi bi-person-check-fill me-1"></i> Manual Officer Review:</span>
+                            <strong>{{ review_count }}</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- =========================================================================
+             7. REQUIREMENT-BY-REQUIREMENT EXPLAINABLE BREAKDOWN
+             ========================================================================= -->
+        <div class="fc-card mb-4">
+            <div class="fc-card-header bg-white">
+                <h5 class="fc-card-title">
+                    <i class="bi bi-list-check text-navy"></i> Detailed Requirement-by-Requirement Assessment
+                </h5>
+                <span class="badge bg-secondary-subtle text-secondary small">{{ checks | length }} Criteria Evaluated</span>
+            </div>
+            <div class="fc-card-body">
+                <p class="text-muted small mb-3">
+                    Every lender policy rule is checked against verified evidence. For each criteria, FinCred AI explains the outcome in simple English, supporting document, and exact next steps.
+                </p>
+
+                {% for check in checks %}
+                <div class="requirement-card {{ check.status }} mb-3">
+                    <div class="req-header d-flex justify-content-between align-items-center mb-2">
+                        <div class="d-flex align-items-center gap-2">
+                            {% if check.status == 'PASS' %}
+                            <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                            {% elif check.status == 'FAIL' %}
+                            <i class="bi bi-x-circle-fill text-danger fs-5"></i>
+                            {% elif check.status == 'PENDING_VERIFICATION' %}
+                            <i class="bi bi-hourglass-split text-warning fs-5"></i>
+                            {% elif check.status == 'MANUAL_REVIEW' %}
+                            <i class="bi bi-person-check-fill text-info fs-5"></i>
+                            {% else %}
+                            <i class="bi bi-dash-circle text-muted fs-5"></i>
+                            {% endif %}
+                            <h6 class="req-title mb-0 fw-bold">{{ check.requirement_label }}</h6>
+                        </div>
+                        <div>
+                            <span class="badge-fincred {{ check.status | status_class }}">
+                                {{ check.status | replace('_', ' ') }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Comparison Grid -->
+                    <div class="req-grid mb-2">
+                        <div>
+                            <span class="req-row-label">Bank Requirement:</span>
+                            <div class="req-row-val text-navy">{{ check.bank_rule_text }}</div>
+                        </div>
+                        <div>
+                            <span class="req-row-label">Applicant Actual Value:</span>
+                            <div class="req-row-val">{{ check.applicant_actual_value }}</div>
+                        </div>
+                    </div>
+
+                    <!-- Plain English Explanation -->
+                    <div class="req-explain mb-2">
+                        <strong>Reason / Analysis:</strong> {{ check.simple_explanation }}
+                    </div>
+
+                    <!-- Supporting Document -->
+                    <div class="small text-muted mb-2">
+                        <i class="bi bi-file-earmark-check me-1"></i> Supporting Evidence:
+                        <span class="text-dark fw-semibold">{{ check.supporting_document_info or 'N/A' }}</span>
+                    </div>
+
+                    <!-- Actionable Next Steps -->
+                    <div class="req-next-steps">
+                        <strong class="text-navy"><i class="bi bi-signpost-2 me-1"></i> What to do next:</strong>
+                        <span>{{ check.next_steps }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Action Bar -->
+        <div class="d-flex justify-content-between mb-5">
+            <a href="{{ url_for('applicant.salary_analysis', app_id=application.id) }}" class="btn btn-fincred-outline">
+                <i class="bi bi-arrow-left me-1"></i> View Salary Analysis
+            </a>
+            <div class="d-flex gap-2">
+                <a href="{{ url_for('applicant.document_upload', app_id=application.id) }}" class="btn btn-fincred-teal">
+                    <i class="bi bi-upload me-1"></i> Upload Requested Documents
+                </a>
+                <a href="{{ url_for('applicant.dashboard') }}" class="btn btn-fincred-primary">
+                    <i class="bi bi-house me-1"></i> Return to Dashboard
+                </a>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

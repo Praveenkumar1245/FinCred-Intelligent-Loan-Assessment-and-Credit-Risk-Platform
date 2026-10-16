@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% block title %}Select Loan Facility — FinCred AI{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-11">
+
+        <!-- Progress Wizard -->
+        <div class="wizard-steps mb-4">
+            <div class="wizard-step active">
+                <span class="step-num">1</span>
+                <span>1. Select Loan Category</span>
+            </div>
+            <div class="wizard-step">
+                <span class="step-num">2</span>
+                <span>2. Loan & Asset Details</span>
+            </div>
+            <div class="wizard-step">
+                <span class="step-num">3</span>
+                <span>3. Upload Documents</span>
+            </div>
+            <div class="wizard-step">
+                <span class="step-num">4</span>
+                <span>4. Automated Assessment</span>
+            </div>
+        </div>
+
+        <div class="text-center mb-4">
+            <span class="badge bg-primary-subtle text-primary mb-2 px-3 py-1 text-uppercase fw-bold" style="letter-spacing: 0.5px;">
+                FinCred AI Underwriting Portal
+            </span>
+            <h3 class="fw-bold text-dark mb-1">Select the Loan Category You Wish to Apply For</h3>
+            <p class="text-muted small mx-auto" style="max-width: 650px;">
+                Each loan product has customized underwriting formulas, collateral valuation rules, and document requirements.
+                Choose an eligible loan type below to begin your tailored assessment.
+            </p>
+        </div>
+
+        <!-- 8 Supported Loan Type Cards -->
+        <div class="row g-4 mb-5">
+            {% for lt in loan_types %}
+            <div class="col-md-6 col-lg-3">
+                <div class="fc-card h-100 d-flex flex-column border-hover shadow-sm">
+                    <div class="fc-card-header bg-white border-0 pb-0 pt-3 d-flex justify-content-between align-items-center">
+                        <div class="p-2 rounded-3 bg-light text-primary fs-3">
+                            <i class="bi {{ lt.icon }}"></i>
+                        </div>
+                        <span class="badge bg-success-subtle text-success small">From {{ lt.default_interest_rate }}% p.a.</span>
+                    </div>
+                    <div class="fc-card-body flex-grow-1 pt-3 pb-2">
+                        <h5 class="fw-bold text-dark mb-2">{{ lt.name }}</h5>
+                        <p class="text-muted small mb-3" style="min-height: 42px;">
+                            {{ lt.description }}
+                        </p>
+
+                        <div class="bg-light p-2 rounded small mb-3">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span class="text-muted">Max LTV Cap:</span>
+                                <strong class="text-dark">{{ lt.default_ltv_cap }}%</strong>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span class="text-muted">Key Verification:</span>
+                                <span class="fw-semibold text-teal" style="font-size: 0.76rem;">
+                                    {% if lt.code == 'gold_loan' %}Gold Purity & Weight
+                                    {% elif lt.code == 'home_loan' %}Property Title & Valuation
+                                    {% elif lt.code == 'education_loan' %}Academic & Co-Applicant
+                                    {% elif lt.code == 'vehicle_loan' %}Vehicle Invoice & LTV
+                                    {% elif lt.code == 'business_loan' %}Turnover & Vintage
+                                    {% elif lt.code == 'loan_against_property' %}Mortgage Collateral
+                                    {% elif lt.code == 'agriculture_loan' %}Land Records & Patta
+                                    {% else %}Income & Repayment DTI
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="fc-card-header bg-light border-top p-2 text-center">
+                        <a href="{{ url_for('applicant.apply', loan_type=lt.code) }}" class="btn btn-fincred-primary btn-sm w-100 py-2">
+                            Select {{ lt.name }} <i class="bi bi-arrow-right ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+    </div>
+</div>
+{% endblock %}

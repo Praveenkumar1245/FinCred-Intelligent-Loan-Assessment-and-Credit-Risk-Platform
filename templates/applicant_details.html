@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+{% block title %}Applicant Details Profile — FinCred AI{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        
+        <!-- Header -->
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <div>
+                <h3 class="fw-bold text-dark mb-1">
+                    <i class="bi bi-person-vcard text-primary me-2"></i> Applicant Profile & Background Details
+                </h3>
+                <p class="text-muted small mb-0">Provide accurate legal and educational details used for automated policy checks and identity verification.</p>
+            </div>
+            <a href="{{ url_for('applicant.dashboard') }}" class="btn btn-fincred-outline btn-sm">
+                <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
+            </a>
+        </div>
+
+        <div class="fc-card">
+            <div class="fc-card-header">
+                <h5 class="fc-card-title"><i class="bi bi-shield-check text-success"></i> Legal & Identity Information</h5>
+                <span class="badge bg-secondary-subtle text-secondary small">Stored Securely in SQLite</span>
+            </div>
+            <div class="fc-card-body">
+                <form method="POST" action="{{ url_for('applicant.applicant_details') }}">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Full Legal Name (as on PAN/Passport) <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-fincred" name="full_name" value="{{ applicant.full_name }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Corporate / Primary Email <span class="text-danger">*</span></label>
+                            <input type="email" class="form-control form-control-fincred" value="{{ applicant.email }}" readonly disabled>
+                            <div class="form-text small">Linked to your authenticated user account.</div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label-fincred">Primary Contact Phone <span class="text-danger">*</span></label>
+                            <input type="tel" class="form-control form-control-fincred" name="phone" value="{{ applicant.phone or '' }}" placeholder="+91 98765 43210" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label-fincred">Date of Birth <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control form-control-fincred" name="date_of_birth" value="{{ applicant.date_of_birth.strftime('%Y-%m-%d') if applicant.date_of_birth else '' }}" required>
+                            <div class="form-text small">Used to verify lender minimum & maximum age criteria.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label-fincred">Permanent Account Number (PAN) <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-fincred text-uppercase" name="pan_number" value="{{ applicant.pan_number or '' }}" placeholder="ABCPS1234F" maxlength="10" required>
+                        </div>
+                    </div>
+
+                    <hr class="my-4 text-muted">
+
+                    <h6 class="fw-bold text-navy mb-3"><i class="bi bi-geo-alt text-primary me-2"></i> Residential Addresses</h6>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Current Residential Address <span class="text-danger">*</span></label>
+                            <textarea class="form-control form-control-fincred" name="current_address" rows="3" placeholder="Apartment, Street, City, State, PIN" required>{{ applicant.current_address or '' }}</textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Permanent Address (if different)</label>
+                            <textarea class="form-control form-control-fincred" name="permanent_address" rows="3" placeholder="Permanent hometown address">{{ applicant.permanent_address or '' }}</textarea>
+                        </div>
+                    </div>
+
+                    <hr class="my-4 text-muted">
+
+                    <h6 class="fw-bold text-navy mb-3">
+                        <i class="bi bi-mortarboard text-teal me-2"></i> Education & Academic Backlogs
+                        <span class="badge bg-info-subtle text-info small ms-2">Evaluated for Education & Specialized Loans</span>
+                    </h6>
+                    <p class="text-muted small">
+                        Note: If the selected loan scheme does not enforce an academic backlog policy, backlogs will not be used to reject your application.
+                    </p>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Highest Education Level Completed / Enrolled</label>
+                            <select class="form-select form-control-fincred" name="education_level">
+                                <option value="B.Tech / B.E." {% if applicant.education_level == 'B.Tech / B.E.' %}selected{% endif %}>B.Tech / B.E. (Engineering)</option>
+                                <option value="Bachelor's Degree (B.Sc / B.Com / B.A / BBA)" {% if 'Bachelor' in (applicant.education_level or '') %}selected{% endif %}>Bachelor's Degree (B.Sc / B.Com / B.A / BBA)</option>
+                                <option value="Master's Degree (MBA / M.Tech / M.Sc)" {% if 'Master' in (applicant.education_level or '') %}selected{% endif %}>Master's Degree (MBA / M.Tech / M.Sc)</option>
+                                <option value="Doctorate / PhD" {% if applicant.education_level == 'Doctorate / PhD' %}selected{% endif %}>Doctorate / PhD</option>
+                                <option value="Higher Secondary / Diploma" {% if 'Diploma' in (applicant.education_level or '') %}selected{% endif %}>Higher Secondary / Diploma</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Number of Active / Uncleared Academic Backlogs</label>
+                            <input type="number" class="form-control form-control-fincred" name="backlog_count" min="0" max="20" value="{{ applicant.backlog_count or 0 }}">
+                            <div class="form-text small">Enter 0 if all academic semesters are completely cleared.</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label-fincred">Backlog Subjects / Academic Notes (if any)</label>
+                            <input type="text" class="form-control form-control-fincred" name="backlog_details" value="{{ applicant.backlog_details or '' }}" placeholder="e.g. Advanced Operating Systems (Clearing in next semester)">
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <a href="{{ url_for('applicant.dashboard') }}" class="btn btn-fincred-outline">Cancel</a>
+                        <button type="submit" class="btn btn-fincred-primary px-4">
+                            <i class="bi bi-check2-circle me-1"></i> Save Profile Details
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

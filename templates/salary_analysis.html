@@ -1,0 +1,387 @@
+{% extends 'base.html' %}
+{% block title %}Salary & Financial Status Analysis — FinCred AI{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-11">
+
+        <!-- Header -->
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <div>
+                <span class="badge bg-primary-subtle text-primary mb-1">Financial Status & Underwriting Engine</span>
+                <h3 class="fw-bold text-dark mb-1">
+                    <i class="bi bi-graph-up-arrow text-primary me-2"></i> Comprehensive Salary & Financial Health Analysis
+                </h3>
+                <p class="text-muted small mb-0">
+                    Application #<strong>{{ application.application_number }}</strong> — {{ application.bank_requirement.bank_name }} ({{ application.bank_requirement.loan_type }})
+                </p>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{{ url_for('applicant.document_upload', app_id=application.id) }}" class="btn btn-fincred-outline btn-sm">
+                    <i class="bi bi-files me-1"></i> Upload More Docs
+                </a>
+                <a href="{{ url_for('applicant.eligibility_results', app_id=application.id) }}" class="btn btn-fincred-primary btn-sm">
+                    <i class="bi bi-check2-circle me-1"></i> View Eligibility Results
+                </a>
+            </div>
+        </div>
+
+        <!-- Verified vs Declared Banner -->
+        <div class="card border-0 shadow-sm p-3 mb-4 {{ 'bg-success-subtle' if assessment.income_verification_status in ('fully_verified', 'partially_verified') else 'bg-warning-subtle' }}">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    {% if assessment.income_verification_status in ('fully_verified', 'partially_verified') %}
+                    <i class="bi bi-shield-check text-success fs-3"></i>
+                    <div>
+                        <strong class="text-success">Verified Income Status: {{ assessment.income_verification_status | replace('_', ' ') | title }}</strong>
+                        <div class="small text-muted">
+                            Current monthly income is verified through official employer payslips and corroborated bank salary credits.
+                        </div>
+                    </div>
+                    {% else %}
+                    <i class="bi bi-exclamation-triangle-fill text-warning fs-3"></i>
+                    <div>
+                        <strong class="text-warning-emphasis">Unverified Income Declaration</strong>
+                        <div class="small text-muted">
+                            Financial assessment currently relies on self-declared income figures. Upload verified salary slips to eliminate estimation uncertainty.
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                <div>
+                    <span class="badge bg-white text-dark border p-2">
+                        Average Verified: <strong>{{ assessment.average_verified_salary | currency }}/mo</strong>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 5 Specific: Previous vs Current Salary Comparison Card -->
+        <div class="fc-card mb-4">
+            <div class="fc-card-header bg-white">
+                <h5 class="fc-card-title"><i class="bi bi-arrow-repeat text-teal"></i> Salary Progression & Increment Metrics</h5>
+                {% if assessment.salary_increase_supported %}
+                <span class="badge bg-success-subtle text-success small"><i class="bi bi-patch-check-fill me-1"></i>Increment Supported by Documents</span>
+                {% elif assessment.salary_increase_amount > 0 %}
+                <span class="badge bg-warning-subtle text-warning small"><i class="bi bi-exclamation-circle me-1"></i>Unsubstantiated Increment (Requires Verification)</span>
+                {% else %}
+                <span class="badge bg-secondary-subtle text-secondary small">No Revision Declared</span>
+                {% endif %}
+            </div>
+            <div class="fc-card-body">
+                <div class="row g-4 align-items-center">
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded text-center border">
+                            <div class="text-muted small text-uppercase fw-semibold mb-1">Previous Salary</div>
+                            <div class="fs-4 fw-bold text-secondary">
+                                {% if assessment.previous_salary %}
+                                {{ assessment.previous_salary | currency }}
+                                {% else %}
+                                <span class="text-muted fs-5">N/A</span>
+                                {% endif %}
+                            </div>
+                            <div class="small text-muted" style="font-size: 0.72rem;">Historical baseline</div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light rounded text-center border">
+                            <div class="text-muted small text-uppercase fw-semibold mb-1">Current Monthly Salary</div>
+                            <div class="fs-4 fw-bold text-dark">{{ assessment.current_verified_income | currency }}</div>
+                            <div class="small text-muted" style="font-size: 0.72rem;">
+                                {% if assessment.income_verification_status in ('fully_verified', 'partially_verified') %}
+                                <span class="text-success"><i class="bi bi-check-circle me-1"></i>Verified</span>
+                                {% else %}
+                                <span class="text-warning"><i class="bi bi-clock me-1"></i>Declared (Pending verif)</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="p-3 rounded text-center border {{ 'bg-success-subtle' if assessment.salary_increase_amount > 0 else 'bg-light' }}">
+                            <div class="text-muted small text-uppercase fw-semibold mb-1">Monthly Salary Increase</div>
+                            <div class="fs-4 fw-bold {{ 'text-success' if assessment.salary_increase_amount > 0 else 'text-dark' }}">
+                                {{ '+' if assessment.salary_increase_amount > 0 else '' }}{{ assessment.salary_increase_amount | currency }}
+                            </div>
+                            <div class="small text-muted" style="font-size: 0.72rem;">Monthly delta</div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="p-3 rounded text-center border {{ 'bg-success-subtle' if assessment.salary_increase_pct > 0 else 'bg-light' }}">
+                            <div class="text-muted small text-uppercase fw-semibold mb-1">Salary Increase %</div>
+                            <div class="fs-4 fw-bold {{ 'text-success' if assessment.salary_increase_pct > 0 else 'text-dark' }}">
+                                {{ '+' if assessment.salary_increase_pct > 0 else '' }}{{ assessment.salary_increase_pct }}%
+                            </div>
+                            <div class="small text-muted" style="font-size: 0.72rem;">Growth revision rate</div>
+                        </div>
+                    </div>
+                </div>
+
+                {% if assessment.previous_salary and assessment.salary_increase_amount > 0 and not assessment.salary_increase_supported %}
+                <div class="alert alert-warning mt-3 py-2 px-3 small mb-0 d-flex align-items-center gap-2">
+                    <i class="bi bi-exclamation-triangle-fill text-warning fs-5"></i>
+                    <div>
+                        <strong>Notice:</strong> Your monthly salary increase of <strong>{{ assessment.salary_increase_amount | currency }} ({{ assessment.salary_increase_pct }}%)</strong>
+                        is not corroborated by an uploaded increment letter or historical payslips. This discrepancy has been marked for Bank Officer verification.
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Collateral & Loan-Specific Asset Valuation (when applicable) -->
+        {% if assessment.collateral_valuation or application.loan_type_code in ('gold_loan', 'home_loan', 'vehicle_loan', 'business_loan', 'loan_against_property', 'agriculture_loan') %}
+        <div class="fc-card mb-4 border-start border-4 border-teal">
+            <div class="fc-card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="fc-card-title mb-0">
+                    <i class="bi {{ application.loan_type_model.icon if application.loan_type_model else 'bi-shield-check' }} text-teal"></i>
+                    Collateral Asset & Underwriting Metrics ({{ application.loan_category_name }})
+                </h5>
+                <span class="badge bg-teal-subtle text-teal small">Asset Valuation</span>
+            </div>
+            <div class="fc-card-body">
+                <div class="row g-3">
+                    {% if application.loan_type_code == 'gold_loan' %}
+                    <div class="col-md-3">
+                        <div class="p-2 border rounded bg-light text-center">
+                            <div class="text-muted small">Pledged Gold</div>
+                            <div class="fw-bold fs-5 text-dark">{{ application.loan_specific_data.get('gold_weight_grams', 0) }}g ({{ application.loan_specific_data.get('gold_purity_karats', '22K') }})</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-2 border rounded bg-light text-center">
+                            <div class="text-muted small">Assessed Value</div>
+                            <div class="fw-bold fs-5 text-primary">{{ assessment.collateral_valuation | currency }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-2 border rounded bg-light text-center">
+                            <div class="text-muted small">Loan-to-Value (LTV)</div>
+                            <div class="fw-bold fs-5 text-success">{{ assessment.calculated_ltv_ratio }}% (Cap: 75%)</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-2 border rounded bg-light text-center">
+                            <div class="text-muted small">Maximum Sanctionable</div>
+                            <div class="fw-bold fs-5 text-dark">{{ (assessment.collateral_valuation * 0.75) | currency }}</div>
+                        </div>
+                    </div>
+                    {% elif application.loan_type_code in ('home_loan', 'vehicle_loan', 'loan_against_property') %}
+                    <div class="col-md-3">
+                        <div class="p-2 border rounded bg-light text-center">
+                            <div class="text-muted small">Asset Market Value</div>
+                            <div class="fw-bold fs-5 text-dark">{{ assessment.collateral_valuation | currency }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-2 border rounded bg-light text-center">
+                            <div class="text-muted small">Down Payment Margin</div>
+                            <div class="fw-bold fs-5 text-primary">{{ assessment.down_payment_pct or 0 }}%</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-2 border rounded bg-light text-center">
+                            <div class="text-muted small">Calculated LTV</div>
+                            <div class="fw-bold fs-5 {{ 'text-success' if assessment.calculated_ltv_ratio and assessment.calculated_ltv_ratio <= application.bank_requirement.max_ltv_ratio else 'text-danger' }}">{{ assessment.calculated_ltv_ratio }}%</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-2 border rounded bg-light text-center">
+                            <div class="text-muted small">Bank LTV Cap</div>
+                            <div class="fw-bold fs-5 text-dark">{{ application.bank_requirement.max_ltv_ratio }}%</div>
+                        </div>
+                    </div>
+                    {% elif application.loan_type_code == 'business_loan' %}
+                    <div class="col-md-3">
+                        <div class="p-2 border rounded bg-light text-center">
+                            <div class="text-muted small">Annual Turnover</div>
+                            <div class="fw-bold fs-5 text-primary">{{ application.loan_specific_data.get('annual_turnover', 0) | currency }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-2 border rounded bg-light text-center">
+                            <div class="text-muted small">Turnover Coverage</div>
+                            <div class="fw-bold fs-5 text-success">{{ assessment.business_turnover_ratio }}x</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-2 border rounded bg-light text-center">
+                            <div class="text-muted small">Operating Vintage</div>
+                            <div class="fw-bold fs-5 text-dark">{{ application.loan_specific_data.get('business_vintage_months', 0) }} Mos</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-2 border rounded bg-light text-center">
+                            <div class="text-muted small">Annual Profit</div>
+                            <div class="fw-bold fs-5 text-dark">{{ application.loan_specific_data.get('annual_net_profit', 0) | currency }}</div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Calculations Breakdown & Charts -->
+        <div class="row g-4 mb-4">
+            <!-- Left: Financial Status Cards -->
+            <div class="col-lg-6">
+                <div class="fc-card h-100">
+                    <div class="fc-card-header">
+                        <h5 class="fc-card-title"><i class="bi bi-calculator text-primary"></i> Underwriting Calculations</h5>
+                    </div>
+                    <div class="fc-card-body p-0">
+                        <table class="table table-fincred mb-0">
+                            <tbody>
+                                <tr>
+                                    <td>
+                                        <div class="fw-semibold">Current Verified Income</div>
+                                        <div class="small text-muted">Corroborated monthly earnings</div>
+                                    </td>
+                                    <td class="text-end fw-bold text-success fs-6">
+                                        {{ assessment.current_verified_income | currency }}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <div class="fw-semibold">Average Verified Salary</div>
+                                        <div class="small text-muted">Mean across uploaded periods</div>
+                                    </td>
+                                    <td class="text-end fw-bold text-dark">
+                                        {{ assessment.average_verified_salary | currency }}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <div class="fw-semibold">Existing Monthly EMI Payments</div>
+                                        <div class="small text-muted">Declared active debt obligations</div>
+                                    </td>
+                                    <td class="text-end fw-bold text-danger">
+                                        -{{ assessment.existing_monthly_emis | currency }}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <div class="fw-semibold">Estimated New Loan EMI</div>
+                                        <div class="small text-muted">Principal: {{ application.loan_amount_requested | currency }} @ {{ application.bank_requirement.interest_rate_pct }}% for {{ application.loan_tenure_months }} mos</div>
+                                    </td>
+                                    <td class="text-end fw-bold text-danger">
+                                        -{{ assessment.estimated_new_emi | currency }}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <div class="fw-semibold">Estimated Living Expenses</div>
+                                        <div class="small text-muted">Standard 30% baseline living allocation</div>
+                                    </td>
+                                    <td class="text-end fw-bold text-muted">
+                                        -{{ assessment.living_expense_estimate | currency }}
+                                    </td>
+                                </tr>
+                                <tr class="bg-light">
+                                    <td>
+                                        <div class="fw-bold text-navy">Estimated Disposable Income</div>
+                                        <div class="small text-muted">Free surplus available post all obligations</div>
+                                    </td>
+                                    <td class="text-end fw-bold fs-5 {{ 'text-success' if assessment.estimated_disposable_income > 0 else 'text-danger' }}">
+                                        {{ assessment.estimated_disposable_income | currency }}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Debt-to-Income (DTI) & Salary Chart -->
+            <div class="col-lg-6">
+                <!-- DTI Card -->
+                <div class="fc-card mb-3">
+                    <div class="fc-card-header">
+                        <h5 class="fc-card-title"><i class="bi bi-speedometer text-teal"></i> Debt-to-Income (DTI) Capacity</h5>
+                        <span class="badge {{ 'bg-success-subtle text-success' if assessment.projected_dti_ratio <= application.bank_requirement.max_dti_ratio else 'bg-danger-subtle text-danger' }} small">
+                            Max Cap: {{ application.bank_requirement.max_dti_ratio }}%
+                        </span>
+                    </div>
+                    <div class="fc-card-body">
+                        <div class="row align-items-center">
+                            <div class="col-sm-5 text-center">
+                                <div style="height: 120px; position: relative;">
+                                    <canvas id="dtiGauge"></canvas>
+                                </div>
+                                <div class="fw-bold fs-4 text-dark mt-1">{{ assessment.projected_dti_ratio }}%</div>
+                                <div class="small text-muted" style="font-size: 0.72rem;">Projected DTI</div>
+                            </div>
+                            <div class="col-sm-7">
+                                <div class="small mb-2">
+                                    <span class="text-muted">Current Debt Burden:</span>
+                                    <strong class="text-dark">{{ assessment.current_dti_ratio }}%</strong>
+                                </div>
+                                <div class="small mb-2">
+                                    <span class="text-muted">Projected Debt Burden:</span>
+                                    <strong class="{{ 'text-danger' if assessment.projected_dti_ratio > application.bank_requirement.max_dti_ratio else 'text-success' }}">
+                                        {{ assessment.projected_dti_ratio }}%
+                                    </strong>
+                                </div>
+                                <div class="small text-muted">
+                                    {% if assessment.projected_dti_ratio <= application.bank_requirement.max_dti_ratio %}
+                                    <span class="text-success"><i class="bi bi-check-circle me-1"></i>Projected commitments are within the safe {{ application.bank_requirement.max_dti_ratio }}% policy threshold.</span>
+                                    {% else %}
+                                    <span class="text-danger"><i class="bi bi-x-circle me-1"></i>Projected commitments exceed the {{ application.bank_requirement.max_dti_ratio }}% maximum debt threshold.</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Salary Comparison Chart -->
+                <div class="fc-card">
+                    <div class="fc-card-header">
+                        <h5 class="fc-card-title"><i class="bi bi-bar-chart text-primary"></i> Income & Progression Chart</h5>
+                    </div>
+                    <div class="fc-card-body">
+                        <div style="height: 160px; position: relative;">
+                            <canvas id="salaryComparisonChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Navigation Buttons -->
+        <div class="d-flex justify-content-between mb-5">
+            <a href="{{ url_for('applicant.document_upload', app_id=application.id) }}" class="btn btn-fincred-outline">
+                <i class="bi bi-arrow-left me-1"></i> Back to Documents
+            </a>
+            <div class="d-flex gap-2">
+                <a href="{{ url_for('applicant.verify_documents', app_id=application.id) }}" class="btn btn-fincred-outline">
+                    <i class="bi bi-search me-1"></i> View Extraction Mismatches
+                </a>
+                <a href="{{ url_for('applicant.eligibility_results', app_id=application.id) }}" class="btn btn-fincred-primary">
+                    <i class="bi bi-arrow-right-circle me-1"></i> View Final Eligibility Assessment
+                </a>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const prevSal = {{ assessment.previous_salary or 0 }};
+    const currSal = {{ assessment.current_verified_income or 0 }};
+    const avgSal = {{ assessment.average_verified_salary or 0 }};
+    const projDti = {{ assessment.projected_dti_ratio or 0 }};
+    const maxDti = {{ application.bank_requirement.max_dti_ratio or 50 }};
+
+    renderSalaryComparisonChart('salaryComparisonChart', prevSal, currSal, avgSal);
+    renderDtiGaugeChart('dtiGauge', projDti, maxDti);
+});
+</script>
+{% endblock %}

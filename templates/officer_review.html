@@ -1,0 +1,342 @@
+{% extends 'base.html' %}
+{% block title %}Underwriting Workbench — Application #{{ application.application_number }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-11">
+
+        <!-- Header -->
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <div>
+                <span class="badge bg-primary-subtle text-primary mb-1">Bank Officer Scrutiny Workbench</span>
+                <h3 class="fw-bold text-dark mb-1">
+                    <i class="bi bi-pencil-square text-primary me-2"></i> Review Application #{{ application.application_number }}
+                </h3>
+                <p class="text-muted small mb-0">
+                    Applicant: <strong>{{ application.applicant.full_name }}</strong> |
+                    Policy: <strong>{{ application.bank_requirement.bank_name }} — {{ application.bank_requirement.loan_type }} (v{{ application.policy_version_used }})</strong>
+                </p>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{{ url_for('officer.officer_queue') }}" class="btn btn-fincred-outline btn-sm">
+                    <i class="bi bi-arrow-left me-1"></i> Return to Queue
+                </a>
+                <a href="{{ url_for('applicant.eligibility_results', app_id=application.id) }}" class="btn btn-fincred-outline btn-sm">
+                    <i class="bi bi-eye me-1"></i> Applicant Assessment View
+                </a>
+            </div>
+        </div>
+
+        <!-- Decision Status Banner if already recorded -->
+        {% if application.officer_decision and application.officer_decision != 'pending' %}
+        <div class="alert {{ 'alert-success' if application.officer_decision == 'approved' else ('alert-danger' if application.officer_decision == 'rejected' else 'alert-warning') }} p-3 mb-4 d-flex align-items-center justify-content-between">
+            <div>
+                <div class="fw-bold">
+                    <i class="bi bi-patch-check-fill me-1"></i> Formal Decision Recorded: {{ application.officer_decision | upper }}
+                </div>
+                <div class="small mt-1">Reason: {{ application.decision_reason }}</div>
+                <div class="text-muted small" style="font-size: 0.72rem;">Decision Date: {{ application.decision_date | format_date }}</div>
+            </div>
+            <div>
+                <span class="badge bg-white text-dark border p-2">Status: {{ application.status | replace('_', ' ') | title }}</span>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Applicant Summary & Financial Snapshot Grid -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <div class="fc-card h-100">
+                    <div class="fc-card-header">
+                        <h6 class="fc-card-title small"><i class="bi bi-person text-primary"></i> Applicant Profile</h6>
+                    </div>
+                    <div class="fc-card-body small">
+                        <div><span class="text-muted">PAN:</span> <strong>{{ application.applicant.pan_number or 'Not Provided' }}</strong></div>
+                        <div><span class="text-muted">DOB:</span> <strong>{{ application.applicant.date_of_birth | format_date }}</strong></div>
+                        <div><span class="text-muted">Phone:</span> <span>{{ application.applicant.phone or 'N/A' }}</span></div>
+                        <div><span class="text-muted">Employer:</span> <span>{{ application.company_name }}</span></div>
+                        <div><span class="text-muted">Tenure:</span> <span>{{ application.experience_months }} Months</span></div>
+                        <div><span class="text-muted">Education:</span> <span>{{ application.applicant.education_level or 'N/A' }}</span></div>
+                        <div><span class="text-muted">Backlogs:</span> <strong class="{{ 'text-danger' if application.applicant.backlog_count > 0 else 'text-success' }}">{{ application.applicant.backlog_count }} Active</strong></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="fc-card h-100">
+                    <div class="fc-card-header">
+                        <h6 class="fc-card-title small"><i class="bi bi-cash-stack text-success"></i> Financial Position</h6>
+                    </div>
+                    <div class="fc-card-body small">
+                        <div><span class="text-muted">Declared Monthly Salary:</span> <strong>{{ application.declared_monthly_salary | currency }}</strong></div>
+                        <div><span class="text-muted">Verified Monthly Income:</span> <strong class="text-success">{{ assessment.current_verified_income | currency }}</strong></div>
+                        <div><span class="text-muted">Previous Monthly Salary:</span> <span>{{ assessment.previous_salary | currency if assessment.previous_salary else 'N/A' }}</span></div>
+                        <div><span class="text-muted">Salary Increase:</span> <strong>{{ '+' if assessment.salary_increase_amount > 0 else '' }}{{ assessment.salary_increase_amount | currency }} ({{ assessment.salary_increase_pct }}%)</strong></div>
+                        <div><span class="text-muted">Existing Monthly EMIs:</span> <span>{{ assessment.existing_monthly_emis | currency }}</span></div>
+                        <div><span class="text-muted">Projected DTI Ratio:</span> <strong class="{{ 'text-danger' if assessment.projected_dti_ratio > application.bank_requirement.max_dti_ratio else 'text-success' }}">{{ assessment.projected_dti_ratio }}%</strong></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="fc-card h-100">
+                    <div class="fc-card-header">
+                        <h6 class="fc-card-title small"><i class="bi bi-shield-lock text-teal"></i> Loan Parameters & ML Model</h6>
+                    </div>
+                    <div class="fc-card-body small">
+                        <div><span class="text-muted">Loan Category:</span> <strong>{{ application.loan_category_name }}</strong></div>
+                        <div><span class="text-muted">Loan Amount Requested:</span> <strong class="fs-6 text-primary">{{ application.loan_amount_requested | currency }}</strong></div>
+                        <div><span class="text-muted">Tenure / Term:</span> <span>{{ application.loan_tenure_months }} Months</span></div>
+                        <div><span class="text-muted">Estimated New EMI:</span> <span>{{ assessment.estimated_new_emi | currency }}/mo</span></div>
+                        {% if assessment.collateral_valuation %}
+                        <div><span class="text-muted">Collateral Valuation:</span> <strong class="text-dark">{{ assessment.collateral_valuation | currency }}</strong></div>
+                        <div><span class="text-muted">Calculated LTV:</span> <strong class="{{ 'text-success' if assessment.calculated_ltv_ratio and assessment.calculated_ltv_ratio <= application.bank_requirement.max_ltv_ratio else 'text-danger' }}">{{ assessment.calculated_ltv_ratio }}%</strong></div>
+                        {% endif %}
+                        <div><span class="text-muted">Credit Score:</span> <strong>{{ application.credit_score or 'Bureau Inquiry Pending' }}</strong></div>
+                        <div><span class="text-muted">ML Approval Likelihood:</span> <strong class="text-teal">{{ assessment.ml_approval_probability }}%</strong></div>
+                        <div><span class="text-muted">Risk Tier:</span> <strong>{{ assessment.ml_risk_tier }} Risk</strong></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if application.loan_specific_data %}
+        <!-- Category-Specific Declarations Box -->
+        <div class="fc-card mb-4 bg-light border">
+            <div class="fc-card-body py-2 px-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-primary text-white"><i class="bi {{ application.loan_type_model.icon if application.loan_type_model else 'bi-tag' }} me-1"></i>{{ application.loan_category_name }} Declarations</span>
+                    <span class="small text-muted">
+                        {% for k, v in application.loan_specific_data.items() %}
+                        <span class="me-3"><strong>{{ k | replace('_', ' ') | title }}:</strong> {{ v }}</span>
+                        {% endfor %}
+                    </span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Document Inspection, OCR Extraction & Manual Override (Step 10 Core) -->
+        <div class="fc-card mb-4">
+            <div class="fc-card-header">
+                <h5 class="fc-card-title"><i class="bi bi-files text-navy"></i> Submitted Documents & Data Extraction Scrutiny</h5>
+                <span class="badge bg-secondary-subtle text-secondary small">{{ application.documents | length }} Files Available</span>
+            </div>
+            <div class="fc-card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-fincred mb-0">
+                        <thead>
+                            <tr>
+                                <th>Category & File</th>
+                                <th>Extraction Results</th>
+                                <th>Verification Status</th>
+                                <th>Actions & Manual Override</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for doc in application.documents %}
+                            {% set ext = doc.extracted_record %}
+                            <tr>
+                                <td>
+                                    <div class="badge bg-light text-dark border mb-1">{{ doc.document_type | replace('_', ' ') | title }}</div>
+                                    <div class="fw-semibold text-primary">{{ doc.original_filename }}</div>
+                                    <div class="small text-muted">{{ (doc.file_size / 1024) | round(1) }} KB | {{ doc.file_type | upper }}</div>
+                                    <a href="{{ url_for('officer.preview_document', doc_id=doc.id) }}" target="_blank" class="btn btn-sm btn-outline-secondary mt-1">
+                                        <i class="bi bi-eye me-1"></i> Preview File
+                                    </a>
+                                </td>
+                                <td>
+                                    {% if ext %}
+                                    <div class="small">
+                                        <div><span class="text-muted">Tool:</span> <code>{{ ext.extraction_method }}</code> (Conf: {{ ext.confidence_score }}%)</div>
+                                        <div><span class="text-muted">Extracted Salary:</span> <strong class="text-success">{{ ext.salary_amount_extracted | currency if ext.salary_amount_extracted else 'None' }}</strong></div>
+                                        <div><span class="text-muted">Extracted Employer:</span> <span>{{ ext.company_name_extracted or 'None' }}</span></div>
+                                        <div><span class="text-muted">Extracted Name:</span> <span>{{ ext.applicant_name_extracted or 'None' }}</span></div>
+                                        {% if ext.is_overridden_by_officer %}
+                                        <div class="badge bg-info-subtle text-info mt-1"><i class="bi bi-pencil me-1"></i>Manually Overridden by Officer</div>
+                                        {% endif %}
+                                    </div>
+                                    {% else %}
+                                    <span class="text-muted small">No extraction parsed.</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge-fincred {{ doc.verification_status | status_class }} mb-2">
+                                        {{ doc.verification_status | replace('_', ' ') | title }}
+                                    </span>
+                                    <!-- Officer Form: Verify / Reject Document -->
+                                    <form method="POST" action="{{ url_for('officer.verify_document_status', doc_id=doc.id) }}" class="mt-1">
+                                        <div class="input-group input-group-sm">
+                                            <select name="verification_status" class="form-select form-select-sm" style="font-size: 0.78rem;">
+                                                <option value="verified" {% if doc.verification_status == 'verified' %}selected{% endif %}>Verify (Valid)</option>
+                                                <option value="rejected" {% if doc.verification_status == 'rejected' %}selected{% endif %}>Reject</option>
+                                                <option value="discrepancy_detected" {% if doc.verification_status == 'discrepancy_detected' %}selected{% endif %}>Discrepancy</option>
+                                                <option value="pending" {% if doc.verification_status == 'pending' %}selected{% endif %}>Pending</option>
+                                            </select>
+                                            <button type="submit" class="btn btn-outline-primary btn-sm">Set</button>
+                                        </div>
+                                    </form>
+                                </td>
+                                <td>
+                                    {% if ext %}
+                                    <!-- Accordion / Modal trigger for Manual Override Form -->
+                                    <button class="btn btn-sm btn-outline-warning" type="button" data-bs-toggle="collapse" data-bs-target="#overrideForm{{ ext.id }}">
+                                        <i class="bi bi-pencil-square me-1"></i> Correct Data
+                                    </button>
+
+                                    <div class="collapse mt-2" id="overrideForm{{ ext.id }}">
+                                        <div class="p-3 border rounded bg-light small" style="min-width: 260px;">
+                                            <strong class="d-block mb-2 text-dark">Correct Extraction Variance:</strong>
+                                            <form method="POST" action="{{ url_for('officer.override_extraction', ext_id=ext.id) }}">
+                                                <div class="mb-2">
+                                                    <label class="form-label mb-0" style="font-size: 0.75rem;">Verified Monthly Salary (₹)</label>
+                                                    <input type="number" step="100" class="form-control form-control-sm" name="salary_amount_extracted" value="{{ ext.salary_amount_extracted or '' }}">
+                                                </div>
+                                                <div class="mb-2">
+                                                    <label class="form-label mb-0" style="font-size: 0.75rem;">Employer Name</label>
+                                                    <input type="text" class="form-control form-control-sm" name="company_name_extracted" value="{{ ext.company_name_extracted or '' }}">
+                                                </div>
+                                                <div class="mb-2">
+                                                    <label class="form-label mb-0" style="font-size: 0.75rem;">Applicant Name</label>
+                                                    <input type="text" class="form-control form-control-sm" name="applicant_name_extracted" value="{{ ext.applicant_name_extracted or '' }}">
+                                                </div>
+                                                <div class="mb-2">
+                                                    <label class="form-label mb-0" style="font-size: 0.75rem;">Audit Note / Reason</label>
+                                                    <input type="text" class="form-control form-control-sm" name="officer_override_notes" placeholder="e.g. Verified from page 2 table" required>
+                                                </div>
+                                                <button type="submit" class="btn btn-sm btn-primary w-100">Save & Recalculate</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bank Requirements Checklist Summary -->
+        <div class="fc-card mb-4">
+            <div class="fc-card-header">
+                <h5 class="fc-card-title"><i class="bi bi-card-checklist text-teal"></i> Bank Policy Requirements Status</h5>
+                <span class="badge bg-secondary-subtle text-secondary small">{{ checks | length }} Criteria</span>
+            </div>
+            <div class="fc-card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-fincred mb-0">
+                        <thead>
+                            <tr>
+                                <th>Requirement</th>
+                                <th>Policy Threshold</th>
+                                <th>Applicant Actual Value</th>
+                                <th>Status</th>
+                                <th>Analysis Explanation</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c in checks %}
+                            <tr>
+                                <td class="fw-semibold text-dark">{{ c.requirement_label }}</td>
+                                <td class="small">{{ c.bank_rule_text }}</td>
+                                <td class="small fw-semibold">{{ c.applicant_actual_value }}</td>
+                                <td>
+                                    <span class="badge-fincred {{ c.status | status_class }}">
+                                        {{ c.status | replace('_', ' ') }}
+                                    </span>
+                                </td>
+                                <td class="small text-muted">{{ c.simple_explanation }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Underwriting Decision Recorder & Review Notes (Step 10 Core) -->
+        <div class="row g-4 mb-4">
+            <!-- Record Formal Decision -->
+            <div class="col-lg-6">
+                <div class="fc-card h-100">
+                    <div class="fc-card-header bg-white">
+                        <h5 class="fc-card-title"><i class="bi bi-award text-primary"></i> Record Underwriting Decision</h5>
+                        <span class="badge bg-warning-subtle text-warning small">Audit Logged</span>
+                    </div>
+                    <div class="fc-card-body">
+                        <form method="POST" action="{{ url_for('officer.record_decision', app_id=application.id) }}">
+                            <div class="mb-3">
+                                <label class="form-label-fincred">Underwriting Outcome <span class="text-danger">*</span></label>
+                                <select class="form-select form-control-fincred" name="officer_decision" required>
+                                    <option value="" disabled selected>-- Select Decision --</option>
+                                    <option value="approved" {% if application.officer_decision == 'approved' %}selected{% endif %}>Approve Loan Facility</option>
+                                    <option value="rejected" {% if application.officer_decision == 'rejected' %}selected{% endif %}>Decline / Reject Application</option>
+                                    <option value="more_info_needed" {% if application.officer_decision == 'more_info_needed' %}selected{% endif %}>Request Additional Information / Documents</option>
+                                </select>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label-fincred">Formal Decision Justification & Credit Notes <span class="text-danger">*</span></label>
+                                <textarea class="form-control form-control-fincred" name="decision_reason" rows="4" placeholder="Detail the underwriting rationale, compensating factors, collateral considerations, or rejection causes..." required>{{ application.decision_reason or '' }}</textarea>
+                            </div>
+
+                            <button type="submit" class="btn btn-fincred-primary w-100 py-2">
+                                <i class="bi bi-check-circle me-1"></i> Record Final Decision & Commit Audit Log
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Review Notes & Queries -->
+            <div class="col-lg-6">
+                <div class="fc-card h-100">
+                    <div class="fc-card-header bg-white">
+                        <h5 class="fc-card-title"><i class="bi bi-chat-left-text text-navy"></i> Review Notes & Document Queries</h5>
+                        <span class="badge bg-secondary-subtle text-secondary small">{{ notes | length }} Entries</span>
+                    </div>
+                    <div class="fc-card-body">
+                        <!-- Add Note Form -->
+                        <form method="POST" action="{{ url_for('officer.add_note', app_id=application.id) }}" class="mb-3">
+                            <div class="row g-2 mb-2">
+                                <div class="col-sm-5">
+                                    <select class="form-select form-select-sm" name="note_type">
+                                        <option value="general">General Credit Note</option>
+                                        <option value="verification_query">Request Missing Document</option>
+                                        <option value="discrepancy">Discrepancy Query</option>
+                                    </select>
+                                </div>
+                                <div class="col-sm-7">
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" class="form-control" name="note_content" placeholder="Type internal officer note..." required>
+                                        <button class="btn btn-primary" type="submit">Post Note</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+
+                        <!-- Notes History -->
+                        <div class="border rounded p-2 bg-light" style="max-height: 220px; overflow-y: auto;">
+                            {% for note in notes %}
+                            <div class="p-2 mb-2 bg-white rounded border small">
+                                <div class="d-flex justify-content-between text-muted" style="font-size: 0.72rem;">
+                                    <strong>{{ note.officer.full_name }}</strong>
+                                    <span>{{ note.created_at | format_date }}</span>
+                                </div>
+                                <div class="mt-1 text-dark">{{ note.content }}</div>
+                            </div>
+                            {% else %}
+                            <div class="text-center py-3 text-muted small">No officer notes recorded yet.</div>
+                            {% endfor %}
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

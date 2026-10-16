@@ -1,0 +1,706 @@
+{% extends 'base.html' %}
+{% block title %}Apply for {{ selected_lt.name if selected_lt else 'Loan' }} — FinCred AI{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+
+        <!-- Progress Wizard -->
+        <div class="wizard-steps mb-4">
+            <a href="{{ url_for('applicant.applicant_details') }}" class="wizard-step done">
+                <span class="step-num"><i class="bi bi-check"></i></span>
+                <span>1. Profile</span>
+            </a>
+            <div class="wizard-step active">
+                <span class="step-num">2</span>
+                <span>2. {{ selected_lt.name if selected_lt else 'Loan Details' }}</span>
+            </div>
+            <div class="wizard-step">
+                <span class="step-num">3</span>
+                <span>3. Upload Documents</span>
+            </div>
+            <div class="wizard-step">
+                <span class="step-num">4</span>
+                <span>4. Automated Assessment</span>
+            </div>
+        </div>
+
+        <!-- Active Loan Type Banner & Switcher -->
+        <div class="fc-card mb-4 border-start border-4 border-primary">
+            <div class="fc-card-body d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="p-3 rounded-circle bg-primary-subtle text-primary fs-3">
+                        <i class="bi {{ selected_lt.icon if selected_lt else 'bi-wallet2' }}"></i>
+                    </div>
+                    <div>
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <h4 class="fw-bold text-dark mb-0">{{ selected_lt.name if selected_lt else 'Loan Application' }}</h4>
+                            <span class="badge bg-primary-subtle text-primary small">Active Category</span>
+                        </div>
+                        <p class="text-muted small mb-0">{{ selected_lt.description if selected_lt else 'Enter loan requirements and details.' }}</p>
+                    </div>
+                </div>
+
+                <!-- Loan Type Quick Switcher -->
+                <div class="d-flex align-items-center gap-2">
+                    <div class="dropdown">
+                        <button class="btn btn-fincred-outline btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-arrow-left-right me-1"></i> Switch Loan Type
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                            <li class="dropdown-header small text-uppercase fw-bold">Supported Loan Categories</li>
+                            {% for lt in all_loan_types %}
+                            <li>
+                                <a class="dropdown-item d-flex align-items-center gap-2 {% if lt.code == selected_lt_code %}active{% endif %}" href="{{ url_for('applicant.apply', loan_type=lt.code) }}">
+                                    <i class="bi {{ lt.icon }}"></i>
+                                    <span>{{ lt.name }}</span>
+                                </a>
+                            </li>
+                            {% endfor %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item text-primary small" href="{{ url_for('applicant.select_loan_type') }}">
+                                    <i class="bi bi-grid me-1"></i> View All Loan Types Grid
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <form method="POST" action="{{ url_for('applicant.apply', loan_type=selected_lt_code) }}" id="loanApplicationForm">
+            <input type="hidden" name="loan_type_code" id="loan_type_code" value="{{ selected_lt_code }}">
+
+            <!-- Step 2.1: Bank & Loan Scheme Selection -->
+            <div class="fc-card mb-4">
+                <div class="fc-card-header">
+                    <h5 class="fc-card-title"><i class="bi bi-bank text-primary"></i> 1. Select Bank Scheme & Loan Terms</h5>
+                    <span class="badge bg-primary-subtle text-primary small">Tailored Policies</span>
+                </div>
+                <div class="fc-card-body">
+                    <div class="mb-3">
+                        <label class="form-label-fincred">Target Lender & Scheme Policy <span class="text-danger">*</span></label>
+                        <select class="form-select form-control-fincred" id="bank_requirement_id" name="bank_requirement_id" required>
+                            {% for p in bank_policies %}
+                            <option value="{{ p.id }}" 
+                                    data-rate="{{ p.interest_rate_pct }}" 
+                                    data-max-amount="{{ p.max_loan_amount }}" 
+                                    data-max-tenure="{{ p.max_loan_tenure_months }}"
+                                    data-min-income="{{ p.min_monthly_salary }}"
+                                    data-max-ltv="{{ p.max_ltv_ratio }}"
+                                    data-docs="{{ p.required_documents }}"
+                                    {% if loop.first %}selected{% endif %}>
+                                {{ p.bank_name }} — {{ p.loan_type }} [Max: ₹{{ '{:,.0f}'.format(p.max_loan_amount) }} | {{ p.interest_rate_pct }}% p.a. | Max {{ p.max_loan_tenure_months }} mos | Policy v{{ p.policy_version }}]
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text small" id="policy_specs_hint">
+                            Evaluating specific eligibility criteria, DTI ceilings, and document policies for {{ selected_lt.name }}.
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label-fincred">Loan Amount Requested (₹) <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light">₹</span>
+                                <input type="number" class="form-control form-control-fincred" id="loan_amount_requested" name="loan_amount_requested" 
+                                    value="{% if selected_lt_code == 'gold_loan' %}250000{% elif selected_lt_code == 'home_loan' %}4500000{% elif selected_lt_code == 'education_loan' %}1200000{% elif selected_lt_code == 'vehicle_loan' %}800000{% elif selected_lt_code == 'business_loan' %}1500000{% elif selected_lt_code == 'loan_against_property' %}3500000{% elif selected_lt_code == 'agriculture_loan' %}400000{% else %}500000{% endif %}" 
+                                    min="10000" step="5000" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label-fincred">Repayment Tenure (Months) <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control form-control-fincred" id="loan_tenure_months" name="loan_tenure_months" 
+                                value="{% if selected_lt_code == 'gold_loan' %}12{% elif selected_lt_code == 'home_loan' %}240{% elif selected_lt_code == 'education_loan' %}84{% elif selected_lt_code == 'vehicle_loan' %}60{% elif selected_lt_code == 'business_loan' %}48{% elif selected_lt_code == 'loan_against_property' %}180{% elif selected_lt_code == 'agriculture_loan' %}24{% else %}36{% endif %}" 
+                                min="6" max="360" step="6" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label-fincred">Estimated Monthly EMI</label>
+                            <div class="p-2 border rounded bg-light text-center">
+                                <span id="live_emi_display" class="fw-bold fs-5 text-primary">₹0.00</span>
+                                <div class="text-muted small" style="font-size: 0.72rem;" id="live_emi_breakdown">Live Amortization Estimate</div>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label-fincred">Loan Purpose / Utilization Description</label>
+                            <input type="text" class="form-control form-control-fincred" name="loan_purpose" 
+                                placeholder="{% if selected_lt_code == 'gold_loan' %}e.g. Working capital, agricultural purchase, short-term emergency liquidity{% elif selected_lt_code == 'home_loan' %}e.g. Purchase of 2BHK residential flat in metro area{% elif selected_lt_code == 'education_loan' %}e.g. Post-graduate degree tuition and hostel living expenses{% elif selected_lt_code == 'vehicle_loan' %}e.g. Purchase of electric passenger vehicle for family commute{% elif selected_lt_code == 'business_loan' %}e.g. Purchase of commercial equipment and inventory expansion{% elif selected_lt_code == 'loan_against_property' %}e.g. Long-term commercial business expansion secured against owned premises{% elif selected_lt_code == 'agriculture_loan' %}e.g. Seed purchase, fertilizer, and borewell irrigation installation{% else %}e.g. Debt consolidation, medical contingency, family requirements{% endif %}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2.2: LOAN-SPECIFIC QUESTIONS SECTION -->
+            <div class="fc-card mb-4 border-top border-3 border-teal">
+                <div class="fc-card-header bg-light">
+                    <h5 class="fc-card-title">
+                        <i class="bi {{ selected_lt.icon }} text-teal"></i> 2. Specific Questions for {{ selected_lt.name }}
+                    </h5>
+                    <span class="badge bg-teal-subtle text-teal small">Category Assessment Fields</span>
+                </div>
+                <div class="fc-card-body">
+
+                    <!-- GOLD LOAN SPECIFIC -->
+                    {% if selected_lt_code == 'gold_loan' %}
+                    <div class="alert alert-warning py-2 px-3 small mb-3">
+                        <i class="bi bi-shield-check me-1"></i>
+                        <strong>Collateral Security:</strong> Gold loans are backed by pledged physical gold. Statutory RBI regulations enforce a maximum Loan-To-Value (LTV) cap of <strong>75%</strong> of the assessed pure gold value.
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label-fincred">Gross Gold Weight (Grams) <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <input type="number" class="form-control form-control-fincred" id="gold_weight_grams" name="gold_weight_grams" value="45.0" min="1" step="0.1" required>
+                                <span class="input-group-text bg-light">grams</span>
+                            </div>
+                            <div class="form-text small">Net weight of precious metal excluding gemstones.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label-fincred">Gold Purity (Karats) <span class="text-danger">*</span></label>
+                            <select class="form-select form-control-fincred" id="gold_purity_karats" name="gold_purity_karats" required>
+                                <option value="24K">24 Karats (99.9% Pure Bullion — ₹7,400/g)</option>
+                                <option value="22K" selected>22 Karats (91.6% Hallmark Jewelry — ₹6,800/g)</option>
+                                <option value="18K">18 Karats (75.0% Standard Ornaments — ₹5,500/g)</option>
+                            </select>
+                            <div class="form-text small">Benchmark rate used for valuation.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label-fincred">Gold Item Category</label>
+                            <select class="form-select form-control-fincred" name="gold_item_type">
+                                <option value="Jewelry" selected>Hallmark Gold Jewelry / Ornaments</option>
+                                <option value="Coins">Bank / Mint Gold Coins</option>
+                                <option value="Bars">Standard Investment Gold Bars</option>
+                            </select>
+                        </div>
+                        <div class="col-md-12">
+                            <!-- Real-time Gold Calculator Display -->
+                            <div class="p-3 border rounded bg-light d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
+                                <div>
+                                    <div class="text-muted small">Estimated Physical Gold Collateral Value:</div>
+                                    <div class="fs-4 fw-bold text-dark" id="gold_estimated_value_display">₹3,06,000.00</div>
+                                </div>
+                                <div class="text-md-end">
+                                    <div class="text-muted small">Maximum Allowable Loan @ 75% LTV Cap:</div>
+                                    <div class="fs-4 fw-bold text-success" id="gold_max_loan_display">₹2,29,500.00</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label-fincred">Pledge & Ownership Declaration</label>
+                            <input type="text" class="form-control form-control-fincred" name="pledge_declaration" 
+                                value="I hereby declare that I am the lawful sole owner of the gold ornaments tendered for pledge." 
+                                placeholder="Ownership or pledge confirmation declaration">
+                        </div>
+                    </div>
+
+                    <!-- HOME LOAN SPECIFIC -->
+                    {% elif selected_lt_code == 'home_loan' %}
+                    <div class="alert alert-info py-2 px-3 small mb-3">
+                        <i class="bi bi-info-circle me-1"></i>
+                        <strong>Housing Underwriting:</strong> Home loans require property valuation, title verification, and statutory borrower equity (minimum 10% to 20% down payment, depending on lender policy).
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Total Property Purchase / Agreement Value (₹) <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light">₹</span>
+                                <input type="number" class="form-control form-control-fincred" id="property_value" name="property_value" value="6000000" min="100000" step="10000" required>
+                            </div>
+                            <div class="form-text small">Registered sale agreement or builder allotment cost.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Applicant Down Payment / Own Contribution (₹) <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light">₹</span>
+                                <input type="number" class="form-control form-control-fincred" id="down_payment" name="down_payment" value="1500000" min="0" step="10000" required>
+                            </div>
+                            <div class="form-text small" id="home_down_payment_hint">Down Payment Share: 25.0% (LTV: 75.0%)</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Property Classification</label>
+                            <select class="form-select form-control-fincred" name="property_type">
+                                <option value="Residential Flat" selected>Ready-to-Move Residential Flat</option>
+                                <option value="Under-Construction Apartment">Under-Construction RERA Apartment</option>
+                                <option value="Independent House">Independent Villa / Bungalow</option>
+                                <option value="Plot Construction">Residential Plot + Self-Construction</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Property Location & Address</label>
+                            <input type="text" class="form-control form-control-fincred" name="property_address" placeholder="e.g. Tower B, Flat 402, Green Meadows, Pune" value="Tower B, Flat 402, Green Meadows, Pune">
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="is_approved_builder" id="is_approved_builder" checked>
+                                <label class="form-check-label small" for="is_approved_builder">
+                                    Project is RERA approved and on lender's pre-approved builder list.
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- EDUCATION LOAN SPECIFIC -->
+                    {% elif selected_lt_code == 'education_loan' %}
+                    <div class="alert alert-info py-2 px-3 small mb-3">
+                        <i class="bi bi-mortarboard me-1"></i>
+                        <strong>Higher Studies Policy:</strong> Evaluates university accreditation, program employability, co-applicant income, and academic clearance (strict zero-backlog policy on select tier-1 schemes).
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Course / Program of Study <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-fincred" name="course_name" value="Master of Science in Data Science" placeholder="e.g. MBA, M.S. Computer Science, B.Tech" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">University / Educational Institution <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-fincred" name="institution_name" value="University of Texas at Dallas" placeholder="e.g. BITS Pilani, Stanford University" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label-fincred">Study Location</label>
+                            <select class="form-select form-control-fincred" name="study_location">
+                                <option value="International" selected>Overseas / International (US/UK/EU/Canada)</option>
+                                <option value="Domestic">Domestic (India - Recognized University)</option>
+                                <option value="Premier">Tier-1 Premier Institute (IIT/IIM/NIT/ISB)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label-fincred">Total Program Cost & Living Expenses (₹) <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light">₹</span>
+                                <input type="number" class="form-control form-control-fincred" name="total_course_fee" value="2500000" min="50000" step="10000" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label-fincred">Co-Applicant Monthly Net Income (₹)</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light">₹</span>
+                                <input type="number" class="form-control form-control-fincred" name="co_applicant_income" value="55000" min="0" step="1000">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Co-Applicant / Financial Guarantor Full Name</label>
+                            <input type="text" class="form-control form-control-fincred" name="co_applicant_name" value="Ramesh Sen" placeholder="e.g. Father, Mother, Legal Guardian">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Relationship to Applicant</label>
+                            <select class="form-select form-control-fincred" name="co_applicant_relationship">
+                                <option value="Father" selected>Father</option>
+                                <option value="Mother">Mother</option>
+                                <option value="Spouse">Spouse</option>
+                                <option value="Sibling">Sibling</option>
+                                <option value="Legal Guardian">Legal Guardian</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- VEHICLE LOAN SPECIFIC -->
+                    {% elif selected_lt_code == 'vehicle_loan' %}
+                    <div class="alert alert-info py-2 px-3 small mb-3">
+                        <i class="bi bi-car-front me-1"></i>
+                        <strong>Automobile Finance:</strong> Assesses on-road vehicle invoice, borrower margin money (down payment), hypothecation terms, and applicant monthly disposable income.
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Vehicle On-Road / Quotation Price (₹) <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light">₹</span>
+                                <input type="number" class="form-control form-control-fincred" id="vehicle_price" name="vehicle_price" value="1000000" min="50000" step="5000" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Applicant Down Payment Amount (₹) <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light">₹</span>
+                                <input type="number" class="form-control form-control-fincred" id="vehicle_down_payment" name="vehicle_down_payment" value="200000" min="0" step="5000" required>
+                            </div>
+                            <div class="form-text small" id="vehicle_down_payment_hint">Down Payment Share: 20.0% (LTV: 80.0%)</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Vehicle Make & Model <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-fincred" name="vehicle_make_model" value="Tata Nexon EV Empowered" placeholder="e.g. Hyundai Creta, Honda City, TVS Apache" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label-fincred">Vehicle Category</label>
+                            <select class="form-select form-control-fincred" name="vehicle_type">
+                                <option value="Electric Passenger Car" selected>Electric Passenger Car</option>
+                                <option value="Passenger Car (Petrol/Diesel)">Passenger Car (Petrol/Diesel)</option>
+                                <option value="Two-Wheeler">Two-Wheeler / Motorcycle</option>
+                                <option value="Commercial Vehicle">Commercial Vehicle</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-center pt-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="is_new_vehicle" id="is_new_vehicle" checked>
+                                <label class="form-check-label small" for="is_new_vehicle">Brand New Showroom Vehicle</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- BUSINESS LOAN SPECIFIC -->
+                    {% elif selected_lt_code == 'business_loan' %}
+                    <div class="alert alert-info py-2 px-3 small mb-3">
+                        <i class="bi bi-briefcase me-1"></i>
+                        <strong>Commercial Underwriting:</strong> Assesses business longevity (minimum operational vintage), annual turnover velocity, net profitability, and GST consistency.
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Registered Business / Enterprise Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-fincred" name="business_name" value="Vanguard Dynamics Private Limited" placeholder="e.g. Zenith Logistics LLP" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label-fincred">Business Constitution</label>
+                            <select class="form-select form-control-fincred" name="business_type">
+                                <option value="Private Limited Company" selected>Private Limited Company</option>
+                                <option value="Limited Liability Partnership">LLP (Limited Liability Partnership)</option>
+                                <option value="Partnership Firm">Partnership Firm</option>
+                                <option value="Sole Proprietorship">Sole Proprietorship</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label-fincred">Business Vintage (Operating Months) <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control form-control-fincred" name="business_vintage_months" value="36" min="1" step="1" required>
+                            <div class="form-text small">Months since commercial incorporation.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label-fincred">Annual Gross Turnover (₹) <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light">₹</span>
+                                <input type="number" class="form-control form-control-fincred" name="annual_turnover" value="6500000" min="100000" step="50000" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label-fincred">Annual Net Profit After Tax (PAT) (₹) <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light">₹</span>
+                                <input type="number" class="form-control form-control-fincred" name="annual_net_profit" value="850000" min="0" step="10000" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label-fincred">GSTIN / Registration Number</label>
+                            <input type="text" class="form-control form-control-fincred" name="gst_number" value="27AABCU9603R1ZM" placeholder="e.g. 27AABCU9603R1ZM">
+                        </div>
+                    </div>
+
+                    <!-- LOAN AGAINST PROPERTY (LAP) SPECIFIC -->
+                    {% elif selected_lt_code == 'loan_against_property' %}
+                    <div class="alert alert-info py-2 px-3 small mb-3">
+                        <i class="bi bi-building me-1"></i>
+                        <strong>Mortgage Collateral Underwriting:</strong> High-ticket multi-purpose loan backed by mortgage over owned freehold immovable property. Subject to strict LTV cap (typically 60%–70%).
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Property Fair Market Valuation (₹) <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light">₹</span>
+                                <input type="number" class="form-control form-control-fincred" name="property_market_value" value="6000000" min="200000" step="25000" required>
+                            </div>
+                            <div class="form-text small">Approved valuer's estimated market capitalization.</div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label-fincred">Property Classification</label>
+                            <select class="form-select form-control-fincred" name="lap_property_type">
+                                <option value="Residential Property" selected>Residential Freehold Building</option>
+                                <option value="Commercial Complex">Commercial Office / Retail Space</option>
+                                <option value="Industrial Warehouse">Industrial Plot / Warehouse</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label-fincred">Property City / District <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-fincred" name="property_city" value="Bangalore Urban" placeholder="e.g. Mumbai, Bangalore" required>
+                        </div>
+                    </div>
+
+                    <!-- AGRICULTURE LOAN SPECIFIC -->
+                    {% elif selected_lt_code == 'agriculture_loan' %}
+                    <div class="alert alert-info py-2 px-3 small mb-3">
+                        <i class="bi bi-flower1 me-1"></i>
+                        <strong>Agricultural Underwriting:</strong> Evaluates cultivable landholding, scale of finance per acre, seasonal crop cycles, and land ownership title (Patta / 7/12 extract).
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Total Agricultural Landholding (Acres) <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <input type="number" class="form-control form-control-fincred" name="land_holding_acres" value="4.5" min="0.5" step="0.25" required>
+                                <span class="input-group-text bg-light">acres</span>
+                            </div>
+                            <div class="form-text small">Land documented under active revenue records.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Primary Farming / Cultivation Activity <span class="text-danger">*</span></label>
+                            <select class="form-select form-control-fincred" name="crop_activity_type">
+                                <option value="Crop Cultivation (Kharif / Rabi)" selected>Crop Cultivation (Paddy / Wheat / Pulses)</option>
+                                <option value="Commercial Horticulture">Commercial Horticulture & Fruits</option>
+                                <option value="Dairy & Animal Husbandry">Dairy Farming & Livestock</option>
+                                <option value="Farm Mechanization & Irrigation">Solar Pump / Drip Irrigation Setup</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Land Ownership Status</label>
+                            <select class="form-select form-control-fincred" name="ownership_status">
+                                <option value="Owner-Cultivator" selected>Owner-Cultivator (Freehold Title)</option>
+                                <option value="Joint Family Ownership">Joint Family Ancestral Ownership</option>
+                                <option value="Tenant Cultivator">Registered Tenant Cultivator</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Estimated Annual Farm & Allied Revenue (₹)</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light">₹</span>
+                                <input type="number" class="form-control form-control-fincred" name="annual_farm_income" value="380000" min="0" step="5000">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PERSONAL LOAN SPECIFIC -->
+                    {% else %}
+                    <div class="alert alert-info py-2 px-3 small mb-0">
+                        <i class="bi bi-person-check me-1"></i>
+                        <strong>Uncollateralized Credit Assessment:</strong> Personal loans do not require pledged physical assets or collateral security. Underwriting decisions strictly evaluate verified monthly salary, payroll regularity, employment stability, debt-to-income (DTI) ratio, and bureau credit rating.
+                    </div>
+                    {% endif %}
+
+                </div>
+            </div>
+
+            <!-- Step 2.3: Employment & Income Progression Details -->
+            <div class="fc-card mb-4">
+                <div class="fc-card-header">
+                    <h5 class="fc-card-title"><i class="bi bi-briefcase text-teal"></i> 3. Employment & Income Declarations</h5>
+                    <span class="badge bg-secondary-subtle text-secondary small">Income Verification</span>
+                </div>
+                <div class="fc-card-body">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Current Employer / Business Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-fincred" name="company_name" 
+                                value="{% if selected_lt_code == 'business_loan' %}Vanguard Dynamics Private Limited{% elif selected_lt_code == 'agriculture_loan' %}Self-Employed Farmer{% elif selected_lt_code == 'gold_loan' %}Universal Crafts Enterprise{% else %}Apex Tech Solutions Pvt Ltd{% endif %}" required>
+                            <div class="form-text small">Organization matching uploaded payslips, ITRs, or business records.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Job Title / Designation</label>
+                            <input type="text" class="form-control form-control-fincred" name="designation" 
+                                value="{% if selected_lt_code == 'business_loan' %}Managing Director{% elif selected_lt_code == 'agriculture_loan' %}Agriculturalist{% elif selected_lt_code == 'gold_loan' %}Proprietor / Independent Consultant{% else %}Senior Software Engineer{% endif %}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Employment Category</label>
+                            <select class="form-select form-control-fincred" name="employment_type">
+                                <option value="Salaried" {% if selected_lt_code in ('personal_loan', 'home_loan', 'vehicle_loan', 'education_loan') %}selected{% endif %}>Salaried (Corporate Payroll)</option>
+                                <option value="Self-Employed Professional" {% if selected_lt_code in ('business_loan', 'gold_loan', 'loan_against_property') %}selected{% endif %}>Self-Employed Professional / Business</option>
+                                <option value="Agriculture / Allied" {% if selected_lt_code == 'agriculture_loan' %}selected{% endif %}>Agriculturalist / Primary Sector</option>
+                                <option value="Contract / Consultant">Contractual / Consultant</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Total Employment / Business Vintage (Months)</label>
+                            <input type="number" class="form-control form-control-fincred" name="experience_months" value="36" min="0" required>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Current Monthly Net In-Hand Income (₹) <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light">₹</span>
+                                <input type="number" class="form-control form-control-fincred" id="declared_monthly_salary" name="declared_monthly_salary" 
+                                    value="{% if selected_lt_code == 'home_loan' %}65000{% elif selected_lt_code == 'gold_loan' %}25000{% elif selected_lt_code == 'business_loan' %}85000{% elif selected_lt_code == 'agriculture_loan' %}30000{% elif selected_lt_code == 'vehicle_loan' %}48000{% else %}32000{% endif %}" 
+                                    min="0" step="500" required>
+                            </div>
+                            <div class="form-text small">Monthly take-home income deposited into primary bank account.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Previous Monthly Income (₹) (if revised recently)</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light">₹</span>
+                                <input type="number" class="form-control form-control-fincred" id="declared_previous_salary" name="declared_previous_salary" 
+                                    value="{% if selected_lt_code == 'home_loan' %}50000{% elif selected_lt_code == 'gold_loan' %}22000{% else %}22000{% endif %}" min="0" step="500">
+                            </div>
+                            <div class="form-text small">Used to compute progression delta and income stability.</div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label-fincred">Salary Revision / Appraisal Date</label>
+                            <input type="date" class="form-control form-control-fincred" name="salary_increase_date" value="2024-07-01">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label-fincred">Existing Monthly EMI Obligations (₹)</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light">₹</span>
+                                <input type="number" class="form-control form-control-fincred" id="existing_monthly_emis" name="existing_monthly_emis" value="4500" min="0" step="100">
+                            </div>
+                            <div class="form-text small">Current ongoing loan installments across all banks.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label-fincred">Credit Bureau Score (CIBIL / Experian)</label>
+                            <input type="number" class="form-control form-control-fincred" name="credit_score" value="740" min="300" max="900" placeholder="e.g. 750">
+                            <div class="form-text small">Leave blank if score is unknown.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2.4: Dynamic Document Checklist Preview -->
+            <div class="fc-card mb-4 bg-light">
+                <div class="fc-card-header bg-white">
+                    <h5 class="fc-card-title"><i class="bi bi-file-earmark-check text-navy"></i> 4. Documentation Required for {{ selected_lt.name }}</h5>
+                    <span class="badge bg-secondary-subtle text-secondary small">Checklist Preview</span>
+                </div>
+                <div class="fc-card-body">
+                    <p class="text-muted small mb-2">
+                        Based on the selected loan category and lender scheme, you will be requested to upload these records in Step 3:
+                    </p>
+                    <div id="required_docs_pills" class="d-flex flex-wrap gap-2">
+                        <!-- Populated by JavaScript from the selected policy -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mb-5">
+                <a href="{{ url_for('applicant.select_loan_type') }}" class="btn btn-fincred-outline">
+                    <i class="bi bi-arrow-left me-1"></i> Back to Loan Types
+                </a>
+                <button type="submit" class="btn btn-fincred-teal px-4 py-2">
+                    Save Application & Proceed to Upload Documents <i class="bi bi-arrow-right ms-1"></i>
+                </button>
+            </div>
+        </form>
+
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const policySelect = document.getElementById("bank_requirement_id");
+    const amountInput = document.getElementById("loan_amount_requested");
+    const tenureInput = document.getElementById("loan_tenure_months");
+    const liveEmiDisplay = document.getElementById("live_emi_display");
+    const liveEmiBreakdown = document.getElementById("live_emi_breakdown");
+    const docsContainer = document.getElementById("required_docs_pills");
+
+    // Gold loan inputs
+    const goldWeightInput = document.getElementById("gold_weight_grams");
+    const goldPuritySelect = document.getElementById("gold_purity_karats");
+    const goldValDisplay = document.getElementById("gold_estimated_value_display");
+    const goldMaxLoanDisplay = document.getElementById("gold_max_loan_display");
+
+    // Home loan inputs
+    const propertyValueInput = document.getElementById("property_value");
+    const downPaymentInput = document.getElementById("down_payment");
+    const homeDownPaymentHint = document.getElementById("home_down_payment_hint");
+
+    // Vehicle loan inputs
+    const vehiclePriceInput = document.getElementById("vehicle_price");
+    const vehicleDownPaymentInput = document.getElementById("vehicle_down_payment");
+    const vehicleDownPaymentHint = document.getElementById("vehicle_down_payment_hint");
+
+    function updateEMI() {
+        const selectedOption = policySelect.options[policySelect.selectedIndex];
+        if (!selectedOption) return;
+
+        const rateAnnual = parseFloat(selectedOption.getAttribute("data-rate")) || 10.5;
+        const P = parseFloat(amountInput.value) || 0;
+        const n = parseInt(tenureInput.value) || 12;
+
+        if (P <= 0 || n <= 0) {
+            liveEmiDisplay.textContent = "₹0.00";
+            return;
+        }
+
+        const r = (rateAnnual / 12) / 100;
+        let emi = 0;
+        if (r > 0) {
+            emi = (P * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+        } else {
+            emi = P / n;
+        }
+
+        liveEmiDisplay.textContent = "₹" + Math.round(emi).toLocaleString("en-IN") + "/mo";
+        const totalPayable = Math.round(emi * n);
+        const totalInterest = Math.round(totalPayable - P);
+        liveEmiBreakdown.textContent = "Rate: " + rateAnnual + "% | Total Int: ₹" + totalInterest.toLocaleString("en-IN");
+    }
+
+    function updatePolicyDocs() {
+        const selectedOption = policySelect.options[policySelect.selectedIndex];
+        if (!selectedOption || !docsContainer) return;
+
+        const rawDocs = selectedOption.getAttribute("data-docs") || "";
+        const docList = rawDocs.split(",").map(d => d.trim()).filter(d => d.length > 0);
+
+        docsContainer.innerHTML = "";
+        if (docList.length === 0) {
+            docsContainer.innerHTML = '<span class="text-muted small">Standard KYC and financial documents</span>';
+            return;
+        }
+
+        docList.forEach(d => {
+            const pill = document.createElement("span");
+            pill.className = "badge bg-white text-dark border p-2 fw-normal";
+            pill.innerHTML = '<i class="bi bi-file-earmark-text text-primary me-1"></i>' + d.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+            docsContainer.appendChild(pill);
+        });
+    }
+
+    function updateGoldCalculation() {
+        if (!goldWeightInput || !goldPuritySelect || !goldValDisplay) return;
+
+        const weight = parseFloat(goldWeightInput.value) || 0;
+        const purity = goldPuritySelect.value;
+        const rateMap = { "24K": 7400, "22K": 6800, "18K": 5500 };
+        const rate = rateMap[purity] || 6800;
+
+        const totalVal = Math.round(weight * rate);
+        const maxLoan = Math.round(totalVal * 0.75);
+
+        goldValDisplay.textContent = "₹" + totalVal.toLocaleString("en-IN");
+        goldMaxLoanDisplay.textContent = "₹" + maxLoan.toLocaleString("en-IN");
+    }
+
+    function updateHomeLTV() {
+        if (!propertyValueInput || !downPaymentInput || !homeDownPaymentHint) return;
+        const propVal = parseFloat(propertyValueInput.value) || 0;
+        const downPay = parseFloat(downPaymentInput.value) || 0;
+        if (propVal > 0) {
+            const downPct = ((downPay / propVal) * 100).toFixed(1);
+            const ltvPct = (100 - downPct).toFixed(1);
+            homeDownPaymentHint.textContent = `Down Payment Share: ${downPct}% (LTV: ${ltvPct}%)`;
+        }
+    }
+
+    function updateVehicleLTV() {
+        if (!vehiclePriceInput || !vehicleDownPaymentInput || !vehicleDownPaymentHint) return;
+        const price = parseFloat(vehiclePriceInput.value) || 0;
+        const downPay = parseFloat(vehicleDownPaymentInput.value) || 0;
+        if (price > 0) {
+            const downPct = ((downPay / price) * 100).toFixed(1);
+            const ltvPct = (100 - downPct).toFixed(1);
+            vehicleDownPaymentHint.textContent = `Down Payment Share: ${downPct}% (LTV: ${ltvPct}%)`;
+        }
+    }
+
+    policySelect.addEventListener("change", function() {
+        updateEMI();
+        updatePolicyDocs();
+    });
+
+    amountInput.addEventListener("input", updateEMI);
+    tenureInput.addEventListener("input", updateEMI);
+
+    if (goldWeightInput) goldWeightInput.addEventListener("input", updateGoldCalculation);
+    if (goldPuritySelect) goldPuritySelect.addEventListener("change", updateGoldCalculation);
+    if (propertyValueInput) propertyValueInput.addEventListener("input", updateHomeLTV);
+    if (downPaymentInput) downPaymentInput.addEventListener("input", updateHomeLTV);
+    if (vehiclePriceInput) vehiclePriceInput.addEventListener("input", updateVehicleLTV);
+    if (vehicleDownPaymentInput) vehicleDownPaymentInput.addEventListener("input", updateVehicleLTV);
+
+    // Initial updates
+    updateEMI();
+    updatePolicyDocs();
+    updateGoldCalculation();
+    updateHomeLTV();
+    updateVehicleLTV();
+});
+</script>
+{% endblock %}

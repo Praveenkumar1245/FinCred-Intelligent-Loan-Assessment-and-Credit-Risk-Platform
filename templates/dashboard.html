@@ -1,0 +1,396 @@
+{% extends 'base.html' %}
+{% block title %}Executive Dashboard — FinCred AI{% endblock %}
+
+{% block content %}
+<div class="row mb-3 align-items-center">
+    <div class="col-md-7">
+        <h3 class="fw-bold text-dark mb-1">
+            <i class="bi bi-speedometer2 text-primary me-2"></i>
+            {% if is_staff %}Credit Operations Dashboard{% else %}Applicant Financial Overview{% endif %}
+        </h3>
+        <p class="text-muted small mb-0">
+            {% if is_staff %}
+            Real-time pipeline monitoring, loan-specific underwriting queues, and cross-category risk metrics.
+            {% else %}
+            Track your active loan applications, verification progress, and plain-language eligibility determinations.
+            {% endif %}
+        </p>
+    </div>
+    <div class="col-md-5 text-md-end mt-2 mt-md-0">
+        {% if is_staff %}
+        <a href="{{ url_for('officer.officer_queue') }}" class="btn btn-fincred-primary btn-sm me-2">
+            <i class="bi bi-clipboard2-check me-1"></i> Review Queue
+        </a>
+        <a href="{{ url_for('admin.loan_types') }}" class="btn btn-fincred-outline btn-sm me-2">
+            <i class="bi bi-collection me-1"></i> Loan Types
+        </a>
+        <a href="{{ url_for('admin.bank_requirements') }}" class="btn btn-fincred-outline btn-sm">
+            <i class="bi bi-gear me-1"></i> Bank Rules
+        </a>
+        {% else %}
+        <a href="{{ url_for('applicant.select_loan_type') }}" class="btn btn-fincred-teal btn-sm me-2">
+            <i class="bi bi-plus-circle me-1"></i> Apply for Loan
+        </a>
+        <a href="{{ url_for('applicant.applicant_details') }}" class="btn btn-fincred-outline btn-sm">
+            <i class="bi bi-pencil-square me-1"></i> Update Profile
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- =========================================================================
+     LOAN TYPE CATEGORY FILTER BAR
+     ========================================================================= -->
+<div class="fc-card mb-4 bg-white p-3">
+    <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2">
+        <div class="d-flex align-items-center gap-2">
+            <span class="text-muted small fw-bold text-uppercase"><i class="bi bi-funnel me-1"></i>Filter Category:</span>
+        </div>
+        <div class="d-flex flex-wrap gap-1">
+            <a href="{{ url_for('applicant.dashboard') }}" 
+               class="btn btn-sm {% if not current_loan_type %}btn-primary{% else %}btn-outline-secondary{% endif %} py-1 px-3">
+                All Categories
+            </a>
+            {% for lt in loan_types %}
+            <a href="{{ url_for('applicant.dashboard', loan_type=lt.code) }}" 
+               class="btn btn-sm {% if current_loan_type == lt.code %}btn-primary{% else %}btn-outline-secondary{% endif %} py-1 px-2 d-inline-flex align-items-center gap-1">
+                <i class="bi {{ lt.icon }}"></i>
+                <span>{{ lt.name }}</span>
+                {% if is_staff and loan_type_counts and lt.name in loan_type_counts %}
+                <span class="badge bg-light text-dark ms-1" style="font-size: 0.7rem;">{{ loan_type_counts[lt.name] }}</span>
+                {% endif %}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{% if is_staff %}
+<!-- =========================================================================
+     STAFF / OFFICER / ADMIN KPI CARDS
+     ========================================================================= -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-2">
+        <div class="kpi-card">
+            <div>
+                <div class="kpi-label">Total Applications</div>
+                <div class="kpi-value">{{ total_apps }}</div>
+            </div>
+            <div class="kpi-icon navy"><i class="bi bi-folder2-open"></i></div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-2">
+        <div class="kpi-card">
+            <div>
+                <div class="kpi-label">Awaiting Review</div>
+                <div class="kpi-value text-primary">{{ awaiting_review }}</div>
+            </div>
+            <div class="kpi-icon teal"><i class="bi bi-hourglass-split"></i></div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-2">
+        <div class="kpi-card">
+            <div>
+                <div class="kpi-label">Pending Docs</div>
+                <div class="kpi-value text-warning">{{ missing_docs }}</div>
+            </div>
+            <div class="kpi-icon amber"><i class="bi bi-file-earmark-arrow-up"></i></div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-2">
+        <div class="kpi-card">
+            <div>
+                <div class="kpi-label">Docs to Verify</div>
+                <div class="kpi-value text-warning">{{ docs_needing_verif }}</div>
+            </div>
+            <div class="kpi-icon amber"><i class="bi bi-card-checklist"></i></div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-2">
+        <div class="kpi-card">
+            <div>
+                <div class="kpi-label">Meets Reqs</div>
+                <div class="kpi-value text-success">{{ meets_reqs }}</div>
+            </div>
+            <div class="kpi-icon green"><i class="bi bi-check2-circle"></i></div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-2">
+        <div class="kpi-card">
+            <div>
+                <div class="kpi-label">Ineligible</div>
+                <div class="kpi-value text-danger">{{ does_not_meet }}</div>
+            </div>
+            <div class="kpi-icon red"><i class="bi bi-x-circle"></i></div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Section: Status Distribution, Loan Category Distribution, Salary Brackets -->
+<div class="row g-3 mb-4">
+    <div class="col-lg-4">
+        <div class="fc-card h-100">
+            <div class="fc-card-header">
+                <h5 class="fc-card-title"><i class="bi bi-pie-chart text-teal"></i> Application Statuses</h5>
+            </div>
+            <div class="fc-card-body d-flex flex-column justify-content-center align-items-center" style="min-height: 250px;">
+                <div style="position: relative; height: 220px; width: 100%;">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="fc-card h-100">
+            <div class="fc-card-header">
+                <h5 class="fc-card-title"><i class="bi bi-collection text-primary"></i> Loan Category Mix</h5>
+            </div>
+            <div class="fc-card-body" style="min-height: 250px;">
+                <div style="position: relative; height: 220px; width: 100%;">
+                    <canvas id="loanTypeChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="fc-card h-100">
+            <div class="fc-card-header">
+                <h5 class="fc-card-title"><i class="bi bi-bar-chart-line text-navy"></i> Income Brackets</h5>
+            </div>
+            <div class="fc-card-body" style="min-height: 250px;">
+                <div style="position: relative; height: 220px; width: 100%;">
+                    <canvas id="salaryChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Applications Table -->
+<div class="fc-card">
+    <div class="fc-card-header d-flex justify-content-between align-items-center">
+        <h5 class="fc-card-title">
+            <i class="bi bi-table text-navy"></i> Recent Applications Queue
+            {% if current_loan_type %}
+            <span class="badge bg-primary-subtle text-primary small ms-2">Filtered: {{ current_loan_type }}</span>
+            {% endif %}
+        </h5>
+        <a href="{{ url_for('officer.officer_queue') }}" class="btn btn-sm btn-link text-decoration-none">View All Queue</a>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-fincred">
+            <thead>
+                <tr>
+                    <th>App Number</th>
+                    <th>Applicant Name</th>
+                    <th>Category</th>
+                    <th>Target Scheme</th>
+                    <th>Requested Loan</th>
+                    <th>Declared Salary</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for app in recent_apps %}
+                <tr>
+                    <td class="fw-semibold text-primary">
+                        <a href="{{ url_for('applicant.eligibility_results', app_id=app.id) }}" class="text-decoration-none fw-bold">
+                            {{ app.application_number }}
+                        </a>
+                    </td>
+                    <td>
+                        <div class="fw-semibold text-dark">{{ app.applicant.full_name }}</div>
+                        <div class="small text-muted">{{ app.company_name }}</div>
+                    </td>
+                    <td>
+                        <span class="badge bg-light text-dark border">
+                            <i class="bi {{ app.loan_type_model.icon if app.loan_type_model else 'bi-wallet2' }} me-1 text-primary"></i>
+                            {{ app.loan_category_name }}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="text-dark">{{ app.bank_requirement.bank_name }}</div>
+                        <div class="small text-muted">{{ app.bank_requirement.loan_type }}</div>
+                    </td>
+                    <td>
+                        <div class="fw-bold">{{ app.loan_amount_requested | currency }}</div>
+                        <div class="small text-muted">{{ app.loan_tenure_months }} Months</div>
+                    </td>
+                    <td>{{ app.declared_monthly_salary | currency }}</td>
+                    <td>
+                        <span class="badge-fincred {{ app.status | status_class }}">
+                            {{ app.status | replace('_', ' ') | title }}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <a href="{{ url_for('officer.review_application', app_id=app.id) }}" class="btn btn-outline-primary" title="Scrutinize & Review">
+                                <i class="bi bi-eye"></i> Review
+                            </a>
+                            <a href="{{ url_for('applicant.eligibility_results', app_id=app.id) }}" class="btn btn-outline-secondary" title="View Results">
+                                <i class="bi bi-file-earmark-text"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" class="text-center py-4 text-muted">
+                        No applications matching category filter. <a href="{{ url_for('applicant.dashboard') }}">Clear filter</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% else %}
+<!-- =========================================================================
+     APPLICANT PERSONAL DASHBOARD
+     ========================================================================= -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="kpi-card">
+            <div>
+                <div class="kpi-label">My Applications</div>
+                <div class="kpi-value">{{ total_apps }}</div>
+            </div>
+            <div class="kpi-icon navy"><i class="bi bi-folder-check"></i></div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="kpi-card">
+            <div>
+                <div class="kpi-label">Meets Requirements</div>
+                <div class="kpi-value text-success">{{ meets_reqs }}</div>
+            </div>
+            <div class="kpi-icon green"><i class="bi bi-check-circle"></i></div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="kpi-card">
+            <div>
+                <div class="kpi-label">Action Required (Docs)</div>
+                <div class="kpi-value text-warning">{{ pending_verif }}</div>
+            </div>
+            <div class="kpi-icon amber"><i class="bi bi-exclamation-triangle"></i></div>
+        </div>
+    </div>
+</div>
+
+{% if my_apps %}
+<div class="fc-card">
+    <div class="fc-card-header d-flex justify-content-between align-items-center">
+        <h5 class="fc-card-title"><i class="bi bi-clock-history text-primary"></i> My Active Loan Applications</h5>
+        <a href="{{ url_for('applicant.select_loan_type') }}" class="btn btn-fincred-primary btn-sm">
+            <i class="bi bi-plus-lg me-1"></i> Apply for Another Loan
+        </a>
+    </div>
+    <div class="fc-card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-fincred">
+                <thead>
+                    <tr>
+                        <th>Application ID</th>
+                        <th>Category</th>
+                        <th>Bank & Scheme</th>
+                        <th>Loan Amount</th>
+                        <th>Status</th>
+                        <th>Next Step Guidance</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for app in my_apps %}
+                    <tr>
+                        <td class="fw-semibold text-primary">{{ app.application_number }}</td>
+                        <td>
+                            <span class="badge bg-light text-dark border">
+                                <i class="bi {{ app.loan_type_model.icon if app.loan_type_model else 'bi-wallet2' }} me-1 text-primary"></i>
+                                {{ app.loan_category_name }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="fw-semibold">{{ app.bank_requirement.bank_name }}</div>
+                            <div class="small text-muted">{{ app.bank_requirement.loan_type }} (v{{ app.policy_version_used }})</div>
+                        </td>
+                        <td>
+                            <div class="fw-bold">{{ app.loan_amount_requested | currency }}</div>
+                            <div class="small text-muted">{{ app.loan_tenure_months }} mos</div>
+                        </td>
+                        <td>
+                            <span class="badge-fincred {{ app.status | status_class }}">
+                                {{ app.status | replace('_', ' ') | title }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if app.status == 'pending_verification' %}
+                            <span class="text-warning small fw-semibold"><i class="bi bi-arrow-up-circle me-1"></i>Upload required documents</span>
+                            {% elif app.status == 'meets_requirements' %}
+                            <span class="text-success small fw-semibold"><i class="bi bi-check-circle me-1"></i>Meets initial criteria</span>
+                            {% elif app.status == 'manual_review' %}
+                            <span class="text-info small fw-semibold"><i class="bi bi-person-check me-1"></i>Under credit officer scrutiny</span>
+                            {% else %}
+                            <span class="text-muted small">View report for details</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{{ url_for('applicant.eligibility_results', app_id=app.id) }}" class="btn btn-fincred-primary" title="View Assessment">
+                                    <i class="bi bi-card-text me-1"></i> Results
+                                </a>
+                                <a href="{{ url_for('applicant.document_upload', app_id=app.id) }}" class="btn btn-outline-secondary" title="Upload Documents">
+                                    <i class="bi bi-upload"></i>
+                                </a>
+                                <a href="{{ url_for('applicant.salary_analysis', app_id=app.id) }}" class="btn btn-outline-secondary" title="Salary Analysis">
+                                    <i class="bi bi-graph-up"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="fc-card text-center py-5">
+    <div class="fc-card-body">
+        <i class="bi bi-file-earmark-plus display-4 text-muted mb-3 d-block"></i>
+        <h5 class="fw-bold text-dark">No Loan Applications Found</h5>
+        <p class="text-muted small mb-3">Begin by selecting your loan product category to assess eligibility.</p>
+        <a href="{{ url_for('applicant.select_loan_type') }}" class="btn btn-fincred-teal">
+            <i class="bi bi-plus-circle me-1"></i> Select Loan Category & Apply Now
+        </a>
+    </div>
+</div>
+{% endif %}
+
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+{% if is_staff %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const statusData = {{ status_counts | tojson | safe }};
+    const loanTypeData = {{ loan_type_counts | tojson | safe }};
+    const salaryData = {{ salary_brackets | tojson | safe }};
+
+    if (typeof renderDashboardStatusChart === 'function') {
+        renderDashboardStatusChart('statusChart', statusData);
+    }
+    if (typeof renderLoanTypeDistributionChart === 'function') {
+        renderLoanTypeDistributionChart('loanTypeChart', loanTypeData);
+    }
+    if (typeof renderDashboardSalaryChart === 'function') {
+        renderDashboardSalaryChart('salaryChart', salaryData);
+    }
+});
+</script>
+{% endif %}
+{% endblock %}

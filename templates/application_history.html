@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+{% block title %}Application History — FinCred AI{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-11">
+
+        <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+            <div>
+                <span class="badge bg-primary-subtle text-primary mb-1">Audit & Historical Records</span>
+                <h3 class="fw-bold text-dark mb-1">
+                    <i class="bi bi-clock-history text-primary me-2"></i> Loan Application History & Underwriting Log
+                </h3>
+                <p class="text-muted small mb-0">
+                    Comprehensive log of all submitted loan applications, category classification, policy versions applied, and underwriting results.
+                </p>
+            </div>
+            <div>
+                <a href="{{ url_for('applicant.select_loan_type') }}" class="btn btn-fincred-teal btn-sm">
+                    <i class="bi bi-plus-circle me-1"></i> New Loan Application
+                </a>
+            </div>
+        </div>
+
+        <!-- Loan Category Filter Bar -->
+        <div class="fc-card mb-4 bg-white p-3">
+            <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="text-muted small fw-bold text-uppercase"><i class="bi bi-funnel me-1"></i>Filter by Category:</span>
+                </div>
+                <div class="d-flex flex-wrap gap-1">
+                    <a href="{{ url_for('applicant.application_history') }}" 
+                       class="btn btn-sm {% if not current_loan_type %}btn-primary{% else %}btn-outline-secondary{% endif %} py-1 px-3">
+                        All Categories
+                    </a>
+                    {% for lt in loan_types %}
+                    <a href="{{ url_for('applicant.application_history', loan_type=lt.code) }}" 
+                       class="btn btn-sm {% if current_loan_type == lt.code %}btn-primary{% else %}btn-outline-secondary{% endif %} py-1 px-2 d-inline-flex align-items-center gap-1">
+                        <i class="bi {{ lt.icon }}"></i>
+                        <span>{{ lt.name }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="fc-card">
+            <div class="fc-card-header d-flex justify-content-between align-items-center">
+                <h5 class="fc-card-title mb-0">
+                    <i class="bi bi-journal-text text-navy"></i> Recorded Applications
+                    {% if current_loan_type %}
+                    <span class="badge bg-primary-subtle text-primary small ms-2">Filtered: {{ current_loan_type }}</span>
+                    {% endif %}
+                </h5>
+                <span class="badge bg-secondary-subtle text-secondary small">{{ applications | length }} Applications</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-fincred mb-0">
+                    <thead>
+                        <tr>
+                            <th>Application ID</th>
+                            <th>Category</th>
+                            <th>Applicant</th>
+                            <th>Submission Date</th>
+                            <th>Bank & Scheme</th>
+                            <th>Loan Amount</th>
+                            <th>Policy Version</th>
+                            <th>Current Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for app in applications %}
+                        <tr>
+                            <td class="fw-bold text-primary">
+                                <a href="{{ url_for('applicant.eligibility_results', app_id=app.id) }}" class="text-decoration-none">
+                                    {{ app.application_number }}
+                                </a>
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark border">
+                                    <i class="bi {{ app.loan_type_model.icon if app.loan_type_model else 'bi-wallet2' }} me-1 text-primary"></i>
+                                    {{ app.loan_category_name }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="fw-semibold text-dark">{{ app.applicant.full_name }}</div>
+                                <div class="small text-muted">{{ app.company_name }}</div>
+                            </td>
+                            <td>
+                                <div>{{ app.created_at | format_date }}</div>
+                                <div class="small text-muted" style="font-size: 0.72rem;">{{ app.created_at.strftime('%H:%M UTC') }}</div>
+                            </td>
+                            <td>
+                                <div class="text-dark">{{ app.bank_requirement.bank_name }}</div>
+                                <div class="small text-muted">{{ app.bank_requirement.loan_type }}</div>
+                            </td>
+                            <td>
+                                <div class="fw-bold">{{ app.loan_amount_requested | currency }}</div>
+                                <div class="small text-muted">{{ app.loan_tenure_months }} Months</div>
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark border">v{{ app.policy_version_used }}</span>
+                            </td>
+                            <td>
+                                <span class="badge-fincred {{ app.status | status_class }}">
+                                    {{ app.status | replace('_', ' ') | title }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ url_for('applicant.eligibility_results', app_id=app.id) }}" class="btn btn-fincred-primary" title="View Results Report">
+                                        <i class="bi bi-card-text me-1"></i> Results
+                                    </a>
+                                    <a href="{{ url_for('applicant.document_upload', app_id=app.id) }}" class="btn btn-outline-secondary" title="Documents">
+                                        <i class="bi bi-files"></i>
+                                    </a>
+                                    {% if is_staff %}
+                                    <a href="{{ url_for('officer.review_application', app_id=app.id) }}" class="btn btn-outline-primary" title="Officer Review">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="9" class="text-center py-4 text-muted">
+                                No applications found matching the selected category.
+                                <a href="{{ url_for('applicant.application_history') }}">Clear filter</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

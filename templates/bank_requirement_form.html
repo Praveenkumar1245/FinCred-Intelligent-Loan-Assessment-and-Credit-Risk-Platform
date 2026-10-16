@@ -1,0 +1,225 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Edit Policy' if policy else 'Create New Bank Policy' }} — FinCred AI{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <div>
+                <h3 class="fw-bold text-dark mb-1">
+                    <i class="bi bi-gear-wide-connected text-primary me-2"></i>
+                    {{ 'Edit Bank Requirement Policy' if policy else 'Configure New Bank Policy' }}
+                </h3>
+                <p class="text-muted small mb-0">
+                    {% if policy %}
+                    Editing policy <strong>{{ policy.policy_code }}</strong> (Currently Version {{ policy.policy_version }}). Saving will increment version to preserve audit integrity.
+                    {% else %}
+                    Define lender underwriting criteria, loan-specific metrics, document checklists, and credit limits.
+                    {% endif %}
+                </p>
+            </div>
+            <a href="{{ url_for('admin.bank_requirements') }}" class="btn btn-fincred-outline btn-sm">
+                <i class="bi bi-arrow-left me-1"></i> Back to Policies
+            </a>
+        </div>
+
+        <div class="fc-card">
+            <div class="fc-card-header bg-white">
+                <h5 class="fc-card-title"><i class="bi bi-shield-check text-navy"></i> Policy Parameters & Eligibility Rules</h5>
+            </div>
+            <div class="fc-card-body">
+                <form method="POST">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Bank / Lending Institution Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-fincred" name="bank_name" value="{{ policy.bank_name if policy else '' }}" placeholder="e.g. Apex National Bank" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Target Loan Category <span class="text-danger">*</span></label>
+                            <select class="form-select form-control-fincred" name="loan_type_code" id="loan_type_code" required>
+                                {% for lt in loan_types %}
+                                <option value="{{ lt.code }}" {% if policy and (policy.loan_type_code == lt.code or policy.loan_type == lt.name) %}selected{% elif not policy and loop.first %}selected{% endif %}>
+                                    {{ lt.name }} ({{ lt.code }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text small">Determines which application form questions and underwriting checks apply.</div>
+                        </div>
+
+                        {% if not policy %}
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Policy Code <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-fincred text-uppercase" name="policy_code" placeholder="e.g. APEX-HL-2026" required>
+                        </div>
+                        {% endif %}
+                        <div class="col-md-{{ '6' if not policy else '6' }}">
+                            <label class="form-label-fincred">Annual Interest Rate (% p.a.) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.05" class="form-control form-control-fincred" name="interest_rate_pct" value="{{ policy.interest_rate_pct if policy else 10.5 }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Maximum Loan Amount (₹) <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control form-control-fincred" name="max_loan_amount" value="{{ policy.max_loan_amount if policy else 1500000.0 }}" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label-fincred">Scheme Summary / Eligibility Description</label>
+                            <textarea class="form-control form-control-fincred" name="description" rows="2" placeholder="Brief overview of intended borrower segment and requirements">{{ policy.description if policy else '' }}</textarea>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+                    <h6 class="fw-bold text-navy mb-3"><i class="bi bi-sliders text-teal me-2"></i> Standard Borrower Criteria</h6>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label-fincred">Min Monthly Income (₹) <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control form-control-fincred" name="min_monthly_income" value="{{ policy.min_monthly_income if policy else 25000.0 }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label-fincred">Max Permissible DTI Ratio (%) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.5" class="form-control form-control-fincred" name="max_dti_ratio" value="{{ policy.max_dti_ratio if policy else 50.0 }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label-fincred">Min Bureau Credit Score <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control form-control-fincred" name="min_credit_score" value="{{ policy.min_credit_score if policy else 680 }}" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label-fincred">Minimum Age</label>
+                            <input type="number" class="form-control form-control-fincred" name="min_age" value="{{ policy.min_age if policy else 21 }}" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label-fincred">Maximum Age</label>
+                            <input type="number" class="form-control form-control-fincred" name="max_age" value="{{ policy.max_age if policy else 60 }}" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label-fincred">Min Employment (Months)</label>
+                            <input type="number" class="form-control form-control-fincred" name="min_employment_months" value="{{ policy.min_employment_months if policy else 12 }}" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label-fincred">Max Tenure (Months)</label>
+                            <input type="number" class="form-control form-control-fincred" name="max_loan_tenure_months" value="{{ policy.max_loan_tenure_months if policy else 60 }}" required>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+                    <!-- Loan-Specific Underwriting Rules -->
+                    <h6 class="fw-bold text-navy mb-2"><i class="bi bi-shield-lock text-primary me-2"></i> Category-Specific Underwriting Thresholds</h6>
+                    <p class="text-muted small mb-3">Applied dynamically based on the chosen loan type (e.g. Gold LTV, Home LTV, Business Vintage, Agri Landholding).</p>
+
+                    <div class="row g-3 mb-3 p-3 bg-light rounded border">
+                        <div class="col-md-4">
+                            <label class="form-label-fincred">Max Loan-to-Value (LTV) Cap (%)</label>
+                            <div class="input-group">
+                                <input type="number" step="0.5" class="form-control form-control-fincred" name="max_ltv_ratio" value="{{ policy.max_ltv_ratio if policy else 75.0 }}">
+                                <span class="input-group-text bg-white">%</span>
+                            </div>
+                            <div class="form-text small">Statutory cap for Gold (75%), Home (80%), Vehicle (85%), LAP (65%).</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label-fincred">Min Down Payment Contribution (%)</label>
+                            <div class="input-group">
+                                <input type="number" step="0.5" class="form-control form-control-fincred" name="min_down_payment_pct" value="{{ policy.min_down_payment_pct if policy else 15.0 }}">
+                                <span class="input-group-text bg-white">%</span>
+                            </div>
+                            <div class="form-text small">Minimum borrower equity for Home and Vehicle loans.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label-fincred">Min Business Vintage (Months)</label>
+                            <input type="number" class="form-control form-control-fincred" name="min_business_vintage_months" value="{{ policy.min_business_vintage_months if policy else 24 }}">
+                            <div class="form-text small">Minimum operational history for Business Loans.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Min Annual Business Turnover (₹)</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-white">₹</span>
+                                <input type="number" class="form-control form-control-fincred" name="min_annual_turnover" value="{{ policy.min_annual_turnover if policy else 2000000.0 }}">
+                            </div>
+                            <div class="form-text small">Gross turnover threshold for enterprise borrowing.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label-fincred">Min Cultivable Landholding (Acres)</label>
+                            <div class="input-group">
+                                <input type="number" step="0.25" class="form-control form-control-fincred" name="min_land_acres" value="{{ policy.min_land_acres if policy else 2.0 }}">
+                                <span class="input-group-text bg-white">Acres</span>
+                            </div>
+                            <div class="form-text small">Minimum landholding requirement for Agriculture Loans.</div>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+                    <!-- Academic Backlog Policy Configuration -->
+                    <h6 class="fw-bold text-navy mb-2"><i class="bi bi-mortarboard text-teal me-2"></i> Academic Backlog Criteria (Education Loans)</h6>
+                    <div class="p-3 bg-light rounded border mb-3">
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" id="backlogSwitch" name="backlog_policy_enabled" {% if policy and policy.backlog_policy_enabled %}checked{% endif %}>
+                            <label class="form-check-label fw-semibold" for="backlogSwitch">
+                                Enforce Academic Backlog Eligibility Rule for this Scheme
+                            </label>
+                        </div>
+                        <p class="text-muted small mb-3">
+                            When enabled, applicant backlogs are compared against the maximum allowed limit. When disabled, academic backlogs are ignored.
+                        </p>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label-fincred">Max Allowed Uncleared Backlogs</label>
+                                <input type="number" class="form-control form-control-fincred" name="max_allowed_backlogs" value="{{ policy.max_allowed_backlogs if policy else 0 }}" min="0">
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label-fincred">Policy Note / Explanation</label>
+                                <input type="text" class="form-control form-control-fincred" name="backlog_policy_note" value="{{ policy.backlog_policy_note if policy else '' }}" placeholder="e.g. Only 1 uncleared backlog permitted with valid semester registration">
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+                    <h6 class="fw-bold text-navy mb-2"><i class="bi bi-file-earmark-check text-success me-2"></i> Mandatory Document Checklist</h6>
+                    <p class="text-muted small mb-2">Check all documents required for this policy. Applications missing any checked document receive "Pending Verification" status.</p>
+
+                    {% set active_docs = policy.required_documents_list if policy else ['salary_slip', 'bank_statement', 'id_proof'] %}
+                    {% set doc_catalog = [
+                        ('id_proof', 'Identity Proof (PAN / Passport)'),
+                        ('address_proof', 'Address Proof (Aadhaar / Utility)'),
+                        ('salary_slip', 'Salary Slips (3 Consecutive Months)'),
+                        ('bank_statement', 'Bank Statements (6 Months)'),
+                        ('increment_letter', 'Appraisal / Increment Letter'),
+                        ('tax_doc', 'Form 16 / ITR Tax Returns'),
+                        ('credit_report', 'Official Bureau Credit Report'),
+                        ('property_documents', 'Property Title Deed / Sale Agreement'),
+                        ('gold_valuation_cert', 'Gold Weight & Purity Certificate / Custody Form'),
+                        ('business_financials', 'Audited Business Financials / GST Returns'),
+                        ('land_records', 'Agricultural Land Records / Revenue Patta'),
+                        ('education_cert', 'Degree Certificate / Marksheets'),
+                        ('admission_letter', 'University Admission Letter / Fee Structure'),
+                        ('vehicle_quotation', 'Authorized Vehicle Quotation / Invoice')
+                    ] %}
+                    <div class="row g-2 mb-4">
+                        {% for dkey, dlabel in doc_catalog %}
+                        <div class="col-md-4">
+                            <div class="form-check p-2 border rounded bg-light">
+                                <input class="form-check-input ms-1 me-2" type="checkbox" name="required_documents" value="{{ dkey }}" id="doc_{{ dkey }}" {% if dkey in active_docs %}checked{% endif %}>
+                                <label class="form-check-label small fw-semibold text-dark" for="doc_{{ dkey }}">{{ dlabel }}</label>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    {% if policy %}
+                    <div class="form-check mb-4">
+                        <input class="form-check-input" type="checkbox" name="is_active" id="activeSwitch" {% if policy.is_active %}checked{% endif %}>
+                        <label class="form-check-label small fw-semibold" for="activeSwitch">Policy is Active and Available for Applicant Selection</label>
+                    </div>
+                    {% endif %}
+
+                    <div class="d-flex justify-content-end gap-2">
+                        <a href="{{ url_for('admin.bank_requirements') }}" class="btn btn-fincred-outline">Cancel</a>
+                        <button type="submit" class="btn btn-fincred-primary px-4">
+                            <i class="bi bi-save me-1"></i> {{ 'Save & Increment Version' if policy else 'Create Bank Policy' }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

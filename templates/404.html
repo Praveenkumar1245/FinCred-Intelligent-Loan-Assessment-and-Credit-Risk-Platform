@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block title %}Page Not Found (404) — FinCred AI{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center py-5">
+    <div class="col-md-6 text-center">
+        <div class="display-1 fw-bold text-navy mb-2">404</div>
+        <h4 class="fw-bold text-dark mb-3">Resource or Page Not Found</h4>
+        <p class="text-muted mb-4">The requested page or loan record does not exist or may have been relocated.</p>
+        <a href="{{ url_for('applicant.dashboard') }}" class="btn btn-fincred-primary">
+            <i class="bi bi-house me-1"></i> Return to Safe Dashboard
+        </a>
+    </div>
+</div>
+{% endblock %}

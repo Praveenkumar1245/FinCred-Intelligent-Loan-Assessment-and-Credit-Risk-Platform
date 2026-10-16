@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+{% block title %}Sign In — FinCred AI{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center align-items-center py-4">
+    <div class="col-12 col-md-8 col-lg-5 col-xl-4">
+        
+        <!-- Brand Header Card -->
+        <div class="text-center mb-4">
+            <div class="d-inline-flex align-items-center justify-content-center bg-navy text-white rounded-3 p-3 mb-2" style="background-color: var(--fc-navy-primary);">
+                <i class="bi bi-bank2 fs-2 text-white"></i>
+            </div>
+            <h4 class="fw-bold text-dark mb-1">FinCred AI</h4>
+            <p class="text-muted small">Smart Loan Eligibility & Verification Platform</p>
+        </div>
+
+        <div class="fc-card">
+            <div class="fc-card-header bg-white pb-0 border-0">
+                <ul class="nav nav-tabs border-bottom-0 w-100" id="authTabs" role="tablist">
+                    <li class="nav-item flex-fill text-center" role="presentation">
+                        <button class="nav-link w-100 fw-semibold {{ 'active' if not show_register else '' }}" id="login-tab" data-bs-toggle="tab" data-bs-target="#login-pane" type="button" role="tab">
+                            <i class="bi bi-box-arrow-in-right me-1"></i> Sign In
+                        </button>
+                    </li>
+                    <li class="nav-item flex-fill text-center" role="presentation">
+                        <button class="nav-link w-100 fw-semibold {{ 'active' if show_register else '' }}" id="register-tab" data-bs-toggle="tab" data-bs-target="#register-pane" type="button" role="tab">
+                            <i class="bi bi-person-plus me-1"></i> New Applicant
+                        </button>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="fc-card-body pt-3">
+                <div class="tab-content" id="authTabContent">
+                    
+                    <!-- Login Pane -->
+                    <div class="tab-pane fade {{ 'show active' if not show_register else '' }}" id="login-pane" role="tabpanel">
+                        <form method="POST" action="{{ url_for('auth.login') }}">
+                            <div class="mb-3">
+                                <label for="username" class="form-label-fincred">Username or Corporate Email</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-person text-muted"></i></span>
+                                    <input type="text" class="form-control form-control-fincred border-start-0" id="username" name="username" placeholder="Enter username or email" required autofocus>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="password" class="form-label-fincred">Password</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-lock text-muted"></i></span>
+                                    <input type="password" class="form-control form-control-fincred border-start-0" id="password" name="password" placeholder="Enter password" required>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-fincred-primary w-100 py-2 mt-2">
+                                <i class="bi bi-shield-lock me-1"></i> Secure Login
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Register Pane -->
+                    <div class="tab-pane fade {{ 'show active' if show_register else '' }}" id="register-pane" role="tabpanel">
+                        <form method="POST" action="{{ url_for('auth.register') }}">
+                            <div class="mb-2">
+                                <label class="form-label-fincred">Full Legal Name</label>
+                                <input type="text" class="form-control form-control-fincred" name="full_name" placeholder="e.g. Ramesh Kumar" required>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label-fincred">Email Address</label>
+                                <input type="email" class="form-control form-control-fincred" name="email" placeholder="applicant@example.com" required>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label-fincred">Username</label>
+                                <input type="text" class="form-control form-control-fincred" name="username" placeholder="Choose a username" required>
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label-fincred">Password</label>
+                                <input type="password" class="form-control form-control-fincred" name="password" placeholder="Minimum 6 characters" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label-fincred">Confirm Password</label>
+                                <input type="password" class="form-control form-control-fincred" name="confirm_password" placeholder="Re-enter password" required>
+                            </div>
+                            <button type="submit" class="btn btn-fincred-teal w-100 py-2">
+                                <i class="bi bi-person-check me-1"></i> Create Applicant Account
+                            </button>
+                        </form>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Demonstration Credentials Card -->
+        <div class="card border-0 shadow-sm bg-white p-3 rounded-3 mt-3">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <span class="fw-bold small text-dark"><i class="bi bi-key-fill text-warning me-1"></i> Quick Demo Access (1-Click Fill)</span>
+                <span class="badge bg-secondary-subtle text-secondary small">Demo Preloaded</span>
+            </div>
+            <div class="d-grid gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary text-start d-flex justify-content-between align-items-center" onclick="quickLogin('admin', 'Admin@123')">
+                    <div>
+                        <strong class="text-dark">Administrator</strong> <span class="badge bg-warning text-dark ms-1">admin</span>
+                        <div class="small text-muted">Manages policies, users & audit logs</div>
+                    </div>
+                    <i class="bi bi-arrow-right-short fs-4"></i>
+                </button>
+
+                <button type="button" class="btn btn-sm btn-outline-secondary text-start d-flex justify-content-between align-items-center" onclick="quickLogin('officer', 'Officer@123')">
+                    <div>
+                        <strong class="text-dark">Bank Officer</strong> <span class="badge bg-primary ms-1">officer</span>
+                        <div class="small text-muted">Review workbench, OCR verification, decisions</div>
+                    </div>
+                    <i class="bi bi-arrow-right-short fs-4"></i>
+                </button>
+
+                <button type="button" class="btn btn-sm btn-outline-secondary text-start d-flex justify-content-between align-items-center" onclick="quickLogin('rajesh', 'Applicant@123')">
+                    <div>
+                        <strong class="text-dark">Applicant: Rajesh Sharma</strong> <span class="badge bg-success ms-1">applicant</span>
+                        <div class="small text-muted">Prime Personal Loan (Meets Requirements)</div>
+                    </div>
+                    <i class="bi bi-arrow-right-short fs-4"></i>
+                </button>
+
+                <button type="button" class="btn btn-sm btn-outline-secondary text-start d-flex justify-content-between align-items-center" onclick="quickLogin('priya', 'Applicant@123')">
+                    <div>
+                        <strong class="text-dark">Applicant: Priya Nair</strong> <span class="badge bg-success ms-1">applicant</span>
+                        <div class="small text-muted">Education Loan (Checks Academic Backlogs)</div>
+                    </div>
+                    <i class="bi bi-arrow-right-short fs-4"></i>
+                </button>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
