@@ -97,17 +97,20 @@ def verify_document_status(doc_id):
     doc = UploadedDocument.query.get_or_404(doc_id)
     new_status = request.form.get('verification_status', 'verified')
     notes = request.form.get('verification_notes', '').strip()
+    reviewer_comments = request.form.get('reviewer_comments', '').strip()
 
     doc.verification_status = new_status
-    doc.verification_notes = notes
+    if reviewer_comments:
+        doc.reviewer_comments = reviewer_comments
+    doc.verification_notes = notes or reviewer_comments or f"Marked as {new_status} by officer."
     doc.verified_at = datetime.utcnow()
     doc.verified_by_id = session['user_id']
     
     # If verified salary slip, verify corresponding salary history entry
-    if doc.document_type == 'salary_slip' and new_status == 'verified':
+    if doc.document_type == 'salary_slip':
         srec = SalaryHistory.query.filter_by(source_document_id=doc.id).first()
         if srec:
-            srec.is_verified = True
+            srec.is_verified = (new_status == 'verified')
 
     db.session.commit()
 

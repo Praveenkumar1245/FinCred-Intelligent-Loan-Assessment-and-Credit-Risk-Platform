@@ -3,6 +3,7 @@ import urllib.parse
 import http.cookiejar
 import re
 import sys
+import time
 
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
@@ -128,9 +129,11 @@ def run_tests():
     print("[PASS] 4.2 Admin Catalog Lists All 8 Loan Categories")
 
     # 4.3 Create New Custom Loan Category
+    cat_code = f"electric_loan_{int(time.time())}"
+    cat_name = f"EV Green Loan {int(time.time()) % 1000}"
     new_cat_data = urllib.parse.urlencode({
-        'name': 'Electric Mobility Loan',
-        'code': 'electric_mobility_loan',
+        'name': cat_name,
+        'code': cat_code,
         'icon': 'bi-lightning-charge',
         'description': 'Subsidized green finance for high-efficiency electric two-wheelers and passenger EVs.',
         'default_ltv_cap': '85.0',
@@ -141,15 +144,19 @@ def run_tests():
     res = admin_opener.open(f"{base_url}/admin/loan-types/new", data=new_cat_data)
     assert res.status == 200
     html = res.read().decode('utf-8')
-    assert "Electric Mobility Loan" in html
-    print("[PASS] 4.3 Admin Successfully Created New Loan Category ('Electric Mobility Loan')")
+    assert cat_name in html
+    print(f"[PASS] 4.3 Admin Successfully Created New Loan Category ('{cat_name}')")
 
     # 4.4 Toggle Loan Category Status
-    ev_match = re.search(r'/admin/loan-types/(\d+)/toggle', html)
+    ev_match = re.search(rf'{cat_name}.*?/admin/loan-types/(\d+)/toggle', html, re.DOTALL)
+    if not ev_match:
+        ev_match = re.search(r'/admin/loan-types/(\d+)/toggle', html)
     if ev_match:
         ev_id = ev_match.group(1)
         res = admin_opener.open(f"{base_url}/admin/loan-types/{ev_id}/toggle", data=b"")
         assert res.status == 200
+        # Toggle back so system remains consistent for subsequent runs
+        admin_opener.open(f"{base_url}/admin/loan-types/{ev_id}/toggle", data=b"")
         print(f"[PASS] 4.4 Successfully Toggled Status for Loan Category #{ev_id}")
 
     # =========================================================================

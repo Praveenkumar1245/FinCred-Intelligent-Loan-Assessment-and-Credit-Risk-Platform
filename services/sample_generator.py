@@ -27,7 +27,21 @@ class SampleDocGenerator:
             "bank_statement": sample_dir / "Sample_Bank_Statement.pdf",
             "increment_letter": sample_dir / "Sample_Increment_Letter.pdf",
             "property_docs": sample_dir / "Sample_Property_Title_Deed.pdf",
-            "property_documents": sample_dir / "Sample_Property_Title_Deed.pdf"
+            "property_documents": sample_dir / "Sample_Property_Title_Deed.pdf",
+            "id_proof": sample_dir / "Sample_Identity_Proof_Aadhaar.pdf",
+            "pan_card": sample_dir / "Sample_PAN_Card.pdf",
+            "address_proof": sample_dir / "Sample_Address_Proof_Utility.pdf",
+            "gold_valuation": sample_dir / "Sample_Gold_Valuation_Certificate.pdf",
+            "gold_valuation_appraisal": sample_dir / "Sample_Gold_Valuation_Certificate.pdf",
+            "gold_ownership_receipt": sample_dir / "Sample_Gold_Purchase_Receipt.pdf",
+            "pledge_declaration": sample_dir / "Sample_Gold_Pledge_Declaration.pdf",
+            "admission_letter": sample_dir / "Sample_University_Admission_Letter.pdf",
+            "fee_structure": sample_dir / "Sample_Course_Fee_Structure.pdf",
+            "education_cert": sample_dir / "Sample_Academic_Degree_Transcript.pdf",
+            "vehicle_quotation": sample_dir / "Sample_Vehicle_Dealer_Quotation.pdf",
+            "business_reg": sample_dir / "Sample_Business_Registration_Udyam.pdf",
+            "land_records": sample_dir / "Sample_Land_Revenue_Patta.pdf",
+            "tax_doc": sample_dir / "Sample_Form16_Tax_Return.pdf"
         }
 
         # 1. Salary Slip
@@ -247,6 +261,151 @@ class SampleDocGenerator:
             page.insert_text((55, 780), "[SEAL OF SUB-REGISTRAR]", fontsize=9, color=(0.4, 0.4, 0.4))
             page.insert_text((350, 780), "Authorized Registrar Signature & Seal", fontsize=9, color=(0.4, 0.4, 0.4))
             doc.save(str(paths["property_docs"]))
+            doc.close()
+
+        # 5. Identity Proof (Government UID / Aadhaar)
+        if not paths["id_proof"].exists():
+            doc = fitz.open()
+            page = doc.new_page(width=595, height=842)
+            page.draw_rect(fitz.Rect(40, 40, 555, 95), fill=(0.12, 0.35, 0.55))
+            page.insert_text((60, 72), "UNIQUE IDENTIFICATION AUTHORITY OF INDIA", fontsize=15, color=(1, 1, 1))
+            page.insert_text((60, 88), "GOVERNMENT OF INDIA | AADHAAR IDENTITY CARD", fontsize=8.5, color=(0.85, 0.9, 0.95))
+            page.draw_rect(fitz.Rect(50, 130, 160, 260), fill=(0.94, 0.96, 0.98), color=(0.7, 0.8, 0.9))
+            page.insert_text((75, 200), "[ PHOTO ]", fontsize=11, color=(0.4, 0.5, 0.6))
+            page.insert_text((190, 150), "Name: Rajesh Sharma", fontsize=13, color=(0.1, 0.2, 0.3))
+            page.insert_text((190, 175), "Date of Birth: 15/05/1990", fontsize=11, color=(0.2, 0.2, 0.2))
+            page.insert_text((190, 200), "Gender: Male", fontsize=11, color=(0.2, 0.2, 0.2))
+            page.insert_text((190, 225), "Aadhaar Number: 4920 8819 1049", fontsize=14, color=(0.08, 0.22, 0.38))
+            page.insert_text((190, 250), "Address: Flat 402, Royal Residency, Sector 45, Gurgaon, HR - 122003", fontsize=9.5, color=(0.3, 0.3, 0.3))
+            doc.save(str(paths["id_proof"]))
+            doc.close()
+
+        # 6. PAN Card
+        if not paths["pan_card"].exists():
+            doc = fitz.open()
+            page = doc.new_page(width=595, height=842)
+            page.draw_rect(fitz.Rect(40, 40, 555, 90), fill=(0.05, 0.25, 0.45))
+            page.insert_text((60, 70), "INCOME TAX DEPARTMENT, GOVT OF INDIA", fontsize=14, color=(1, 1, 1))
+            page.insert_text((60, 85), "PERMANENT ACCOUNT NUMBER (PAN) CARD", fontsize=9, color=(0.85, 0.9, 0.95))
+            page.insert_text((60, 140), "Name: RAJESH SHARMA", fontsize=12, color=(0, 0, 0))
+            page.insert_text((60, 165), "Father's Name: OM PRAKASH SHARMA", fontsize=11, color=(0.2, 0.2, 0.2))
+            page.insert_text((60, 190), "Date of Birth: 15/05/1990", fontsize=11, color=(0.2, 0.2, 0.2))
+            page.insert_text((60, 220), "Permanent Account Number:", fontsize=10, color=(0.4, 0.4, 0.4))
+            page.insert_text((60, 245), "PAN: ABCPS1234F", fontsize=16, color=(0.08, 0.22, 0.38))
+            doc.save(str(paths["pan_card"]))
+            doc.close()
+
+        # 7. Address Proof (Utility / Electricity Bill)
+        if not paths["address_proof"].exists():
+            doc = fitz.open()
+            page = doc.new_page(width=595, height=842)
+            page.draw_rect(fitz.Rect(40, 40, 555, 90), fill=(0.1, 0.3, 0.25))
+            page.insert_text((60, 70), "STATE POWER DISTRIBUTION CORPORATION LTD", fontsize=14, color=(1, 1, 1))
+            page.insert_text((60, 85), "MONTHLY ELECTRICITY UTILITY & RESIDENTIAL ADDRESS PROOF", fontsize=8.5, color=(0.85, 0.95, 0.9))
+            page.insert_text((60, 140), "Consumer Name: Rajesh Sharma", fontsize=12, color=(0, 0, 0))
+            page.insert_text((60, 160), "Consumer ID: ELEC-4810928-N", fontsize=10, color=(0.2, 0.2, 0.2))
+            page.insert_text((60, 185), "Service Address: Flat 402, Royal Residency, Sector 45, Gurgaon, HR - 122003", fontsize=10.5, color=(0.1, 0.1, 0.1))
+            page.insert_text((60, 210), "Billing Period: 01/08/2024 - 31/08/2024 | Status: Paid in Full", fontsize=9.5, color=(0.3, 0.3, 0.3))
+            doc.save(str(paths["address_proof"]))
+            doc.close()
+
+        # 8. Gold Valuation Certificate
+        if not paths["gold_valuation"].exists():
+            doc = fitz.open()
+            page = doc.new_page(width=595, height=842)
+            page.draw_rect(fitz.Rect(40, 40, 555, 95), fill=(0.55, 0.42, 0.08))
+            page.insert_text((60, 72), "APEX BULLION ASSAYERS & VALUERS LTD", fontsize=15, color=(1, 1, 1))
+            page.insert_text((60, 88), "GOVERNMENT APPROVED VALUER & BIS HALLMARK CENTRE | REG: VAL-G-4019", fontsize=8.5, color=(0.95, 0.9, 0.8))
+            page.insert_text((60, 140), "Customer Name: Vikram Singh / Rajesh Sharma", fontsize=11, color=(0, 0, 0))
+            page.insert_text((60, 160), "Valuation Date: 16/10/2026 | Assayer Certificate: GLD-VAL-2026-992", fontsize=10, color=(0.2, 0.2, 0.2))
+            page.draw_rect(fitz.Rect(50, 180, 545, 260), fill=(0.98, 0.96, 0.90), color=(0.8, 0.65, 0.2))
+            page.insert_text((65, 205), "Pledged Article: 22 Karat BIS Hallmark Gold Jewelry (Necklace & Bangles)", fontsize=10.5, color=(0.1, 0.1, 0.1))
+            page.insert_text((65, 225), "Gross Weight: 48.20 Grams | Net Pure Weight: 45.00 Grams", fontsize=10.5, color=(0.1, 0.1, 0.1))
+            page.insert_text((65, 245), "Benchmark Market Rate: Rs. 6,800.00 / Gram (22K)", fontsize=10.5, color=(0.1, 0.1, 0.1))
+            page.draw_rect(fitz.Rect(50, 280, 545, 340), fill=(0.92, 0.95, 0.92), color=(0.2, 0.6, 0.3))
+            page.insert_text((65, 305), "TOTAL NET APPRAISED GOLD VALUE: Rs. 3,06,000.00", fontsize=13, color=(0.08, 0.4, 0.2))
+            page.insert_text((65, 325), "Statutory Maximum 75% RBI LTV Eligible Loan Ceiling: Rs. 2,29,500.00", fontsize=10.5, color=(0.08, 0.22, 0.38))
+            doc.save(str(paths["gold_valuation"]))
+            doc.close()
+
+        # 9. University Admission Letter & Fee Structure
+        if not paths["admission_letter"].exists():
+            doc = fitz.open()
+            page = doc.new_page(width=595, height=842)
+            page.draw_rect(fitz.Rect(40, 40, 555, 95), fill=(0.18, 0.15, 0.45))
+            page.insert_text((60, 72), "HORIZON GLOBAL INSTITUTE OF TECHNOLOGY", fontsize=15, color=(1, 1, 1))
+            page.insert_text((60, 88), "FACULTY OF GRADUATE STUDIES | OFFICE OF ADMISSIONS", fontsize=8.5, color=(0.9, 0.9, 0.95))
+            page.insert_text((60, 140), "Student Name: Priya Nair", fontsize=11, color=(0, 0, 0))
+            page.insert_text((60, 160), "Admit Term: Academic Year 2026-2027 | Student ID: HGI-2026-4029", fontsize=10, color=(0.2, 0.2, 0.2))
+            page.insert_text((60, 185), "Program: Master of Science in Artificial Intelligence & Data Systems (M.S.)", fontsize=11, color=(0.08, 0.22, 0.38))
+            page.insert_text((60, 210), "Program Duration: 24 Months (Full-Time Residential)", fontsize=10, color=(0.2, 0.2, 0.2))
+            page.insert_text((60, 245), "TUITION & RESIDENTIAL EXPENSE BREAKDOWN:", fontsize=11, color=(0.18, 0.15, 0.45))
+            page.insert_text((80, 270), "• Tuition & Laboratory Fees: Rs. 14,00,000.00", fontsize=10, color=(0.2, 0.2, 0.2))
+            page.insert_text((80, 290), "• Campus Housing & Living Allowance: Rs. 4,50,000.00", fontsize=10, color=(0.2, 0.2, 0.2))
+            page.insert_text((80, 310), "• Books, Laptop & Study Material: Rs. 1,50,000.00", fontsize=10, color=(0.2, 0.2, 0.2))
+            page.insert_text((60, 345), "Total Estimated Course Cost: Rs. 20,00,000.00 (Twenty Lakhs Only)", fontsize=12, color=(0.08, 0.4, 0.2))
+            doc.save(str(paths["admission_letter"]))
+            doc.close()
+
+        # 10. Vehicle Quotation
+        if not paths["vehicle_quotation"].exists():
+            doc = fitz.open()
+            page = doc.new_page(width=595, height=842)
+            page.draw_rect(fitz.Rect(40, 40, 555, 90), fill=(0.2, 0.2, 0.25))
+            page.insert_text((60, 70), "APEX MOTORS AUTOMOBILE DEALERSHIP", fontsize=15, color=(1, 1, 1))
+            page.insert_text((60, 85), "AUTHORIZED AUTOMOTIVE SALES & SERVICE | PROFORMA QUOTATION", fontsize=8.5, color=(0.9, 0.9, 0.95))
+            page.insert_text((60, 135), "Customer Name: Rajesh Sharma", fontsize=11, color=(0, 0, 0))
+            page.insert_text((60, 155), "Vehicle Model: Nexon EV Empowered Plus (Electric Long Range)", fontsize=11, color=(0.08, 0.22, 0.38))
+            page.insert_text((80, 185), "1. Ex-Showroom Vehicle Price: Rs. 13,20,000.00", fontsize=10, color=(0.2, 0.2, 0.2))
+            page.insert_text((80, 205), "2. RTO Road Tax & Registration: Rs. 75,000.00", fontsize=10, color=(0.2, 0.2, 0.2))
+            page.insert_text((80, 225), "3. Comprehensive Insurance (3 Years): Rs. 55,000.00", fontsize=10, color=(0.2, 0.2, 0.2))
+            page.insert_text((60, 260), "Total On-Road Quotation Price: Rs. 14,50,000.00", fontsize=13, color=(0.08, 0.4, 0.2))
+            page.insert_text((60, 285), "Customer Down Payment (15%): Rs. 2,17,500.00 | Net Loan Required: Rs. 12,32,500.00", fontsize=10.5, color=(0.1, 0.1, 0.1))
+            doc.save(str(paths["vehicle_quotation"]))
+            doc.close()
+
+        # 11. Business Registration & GST
+        if not paths["business_reg"].exists():
+            doc = fitz.open()
+            page = doc.new_page(width=595, height=842)
+            page.draw_rect(fitz.Rect(40, 40, 555, 90), fill=(0.15, 0.35, 0.45))
+            page.insert_text((60, 70), "MINISTRY OF MICRO, SMALL & MEDIUM ENTERPRISES", fontsize=14, color=(1, 1, 1))
+            page.insert_text((60, 85), "UDYAM REGISTRATION CERTIFICATE | GOVERNMENT OF INDIA", fontsize=8.5, color=(0.85, 0.95, 0.95))
+            page.insert_text((60, 135), "Enterprise Name: Universal Crafts & Logistics Pvt Ltd", fontsize=12, color=(0, 0, 0))
+            page.insert_text((60, 155), "Registration No: UDYAM-DL-03-0049281", fontsize=10.5, color=(0.2, 0.2, 0.2))
+            page.insert_text((60, 175), "Major Activity: Services / Trading | Enterprise Type: Small Enterprise", fontsize=10, color=(0.2, 0.2, 0.2))
+            page.insert_text((60, 195), "Date of Incorporation / Vintage: 12/04/2021 (Vintage: > 36 Months)", fontsize=10, color=(0.2, 0.2, 0.2))
+            page.insert_text((60, 215), "GSTIN: 07AAAAU1234F1Z8 | Annual Turnover: Rs. 50,00,000.00", fontsize=10.5, color=(0.08, 0.22, 0.38))
+            doc.save(str(paths["business_reg"]))
+            doc.close()
+
+        # 12. Land Revenue Records / Patta
+        if not paths["land_records"].exists():
+            doc = fitz.open()
+            page = doc.new_page(width=595, height=842)
+            page.draw_rect(fitz.Rect(40, 40, 555, 90), fill=(0.1, 0.4, 0.2))
+            page.insert_text((60, 70), "GOVERNMENT LAND REVENUE DEPARTMENT", fontsize=14, color=(1, 1, 1))
+            page.insert_text((60, 85), "AGRICULTURAL LAND HOLDING EXTRACT (PATTA / KHASRA / 7-12)", fontsize=8.5, color=(0.9, 0.95, 0.9))
+            page.insert_text((60, 135), "Landholder Name: Rajesh Sharma", fontsize=12, color=(0, 0, 0))
+            page.insert_text((60, 155), "Village / Tehsil: North Rampur, District: Meerut", fontsize=10, color=(0.2, 0.2, 0.2))
+            page.insert_text((60, 175), "Survey / Khasra No: 142/1, 142/2 | Land Category: Irrigated Cultivable", fontsize=10.5, color=(0.2, 0.2, 0.2))
+            page.insert_text((60, 195), "Total Landholding Acreage: 3.50 Acres (Min Required: 2.0 Acres)", fontsize=12, color=(0.08, 0.4, 0.2))
+            page.insert_text((60, 215), "Primary Crops: Sugarcane, Wheat & Mustard | Scale of Finance: Rs. 50,000 / Acre", fontsize=10, color=(0.1, 0.1, 0.1))
+            doc.save(str(paths["land_records"]))
+            doc.close()
+
+        # 13. Form 16 / Tax Return
+        if not paths["tax_doc"].exists():
+            doc = fitz.open()
+            page = doc.new_page(width=595, height=842)
+            page.draw_rect(fitz.Rect(40, 40, 555, 90), fill=(0.15, 0.2, 0.35))
+            page.insert_text((60, 70), "FORM NO. 16 — CERTIFICATE UNDER SECTION 203 OF IT ACT", fontsize=13, color=(1, 1, 1))
+            page.insert_text((60, 85), "CENTRAL BOARD OF DIRECT TAXES | TDS FROM SALARIES (FY 2024-25)", fontsize=8.5, color=(0.85, 0.9, 0.95))
+            page.insert_text((60, 135), "Employee: Rajesh Sharma | PAN: ABCPS1234F", fontsize=11, color=(0, 0, 0))
+            page.insert_text((60, 155), "Employer: Apex Tech Solutions Pvt Ltd | TAN: DELA09281F", fontsize=10.5, color=(0.2, 0.2, 0.2))
+            page.insert_text((60, 180), "Gross Salary Reported: Rs. 4,15,200.00", fontsize=11, color=(0.08, 0.22, 0.38))
+            page.insert_text((60, 200), "Total Tax Deducted at Source (TDS): Rs. 0.00 (Exempt under Sec 87A)", fontsize=10, color=(0.2, 0.2, 0.2))
+            doc.save(str(paths["tax_doc"]))
             doc.close()
 
         return paths

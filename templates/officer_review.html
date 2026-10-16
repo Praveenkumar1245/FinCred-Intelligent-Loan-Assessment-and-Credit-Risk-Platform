@@ -166,13 +166,17 @@
                                     </span>
                                     <!-- Officer Form: Verify / Reject Document -->
                                     <form method="POST" action="{{ url_for('officer.verify_document_status', doc_id=doc.id) }}" class="mt-1">
-                                        <div class="input-group input-group-sm">
+                                        <div class="mb-1">
                                             <select name="verification_status" class="form-select form-select-sm" style="font-size: 0.78rem;">
                                                 <option value="verified" {% if doc.verification_status == 'verified' %}selected{% endif %}>Verify (Valid)</option>
-                                                <option value="rejected" {% if doc.verification_status == 'rejected' %}selected{% endif %}>Reject</option>
+                                                <option value="rejected" {% if doc.verification_status == 'rejected' %}selected{% endif %}>Reject / Request Replacement</option>
                                                 <option value="discrepancy_detected" {% if doc.verification_status == 'discrepancy_detected' %}selected{% endif %}>Discrepancy</option>
+                                                <option value="needs_review" {% if doc.verification_status == 'needs_review' %}selected{% endif %}>Needs Review</option>
                                                 <option value="pending" {% if doc.verification_status == 'pending' %}selected{% endif %}>Pending</option>
                                             </select>
+                                        </div>
+                                        <div class="input-group input-group-sm">
+                                            <input type="text" class="form-control form-control-sm" name="reviewer_comments" value="{{ doc.reviewer_comments or '' }}" placeholder="Reviewer notes / replacement reason..." style="font-size: 0.75rem;">
                                             <button type="submit" class="btn btn-outline-primary btn-sm">Set</button>
                                         </div>
                                     </form>

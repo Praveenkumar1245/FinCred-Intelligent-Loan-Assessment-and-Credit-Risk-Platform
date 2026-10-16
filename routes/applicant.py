@@ -373,7 +373,7 @@ def apply():
 
 
 # -------------------------------------------------------------------------
-# Page 5: Document Upload & Automated Ingestion
+# Page 5: Dedicated Loan-Specific Document Upload & Ingestion
 # -------------------------------------------------------------------------
 @applicant_bp.route('/application/<int:app_id>/documents', methods=['GET', 'POST'])
 @login_required
@@ -385,9 +385,12 @@ def document_upload(app_id):
         flash("You do not have access to this application.", "danger")
         return redirect(url_for('applicant.dashboard'))
 
+    from services.document_catalog import evaluate_application_document_slots
     policy = application.bank_requirement
     required_docs = policy.required_documents_list
+    loan_type = application.loan_type_rel
 
+    # Handle legacy general POST upload (backward compatibility)
     if request.method == 'POST':
         doc_type = request.form.get('document_type', 'salary_slip')
         file = request.files.get('file')
@@ -415,13 +418,14 @@ def document_upload(app_id):
             application_id=application.id,
             user_id=session['user_id'],
             document_type=doc_type,
+            slot_key=doc_type,
             original_filename=orig_filename,
             stored_filename=storage_filename,
             file_path=str(file_dest),
             file_size=file_size,
             file_type=file_ext,
             verification_status='pending',
-            verification_notes="Uploaded by user. Automated extraction completed."
+            verification_notes="Uploaded by applicant. Automated OCR extraction completed."
         )
         db.session.add(uploaded_doc)
         db.session.flush()
@@ -467,21 +471,245 @@ def document_upload(app_id):
         log_action(
             "DOCUMENT_UPLOADED",
             application_id=application.id,
-            details=f"Uploaded {doc_type} ({orig_filename}). Extracted data confidence: {structured.get('confidence_score')}%."
+            details=f"Uploaded {doc_type} ({orig_filename}). Confidence: {structured.get('confidence_score')}%."
         )
 
         flash(f"'{orig_filename}' uploaded and parsed successfully!", "success")
         return redirect(url_for('applicant.document_upload', app_id=app_id))
 
+    slots, doc_progress = evaluate_application_document_slots(application)
     uploaded_types = {d.document_type: d for d in application.documents}
 
     return render_template(
         'document_upload.html',
         application=application,
         policy=policy,
+        loan_type=loan_type,
+        slots=slots,
+        doc_progress=doc_progress,
         required_docs=required_docs,
         uploaded_types=uploaded_types
     )
+
+
+# Individual Slot Upload & Replace Route
+@applicant_bp.route('/application/<int:app_id>/upload-slot', methods=['POST'])
+@login_required
+def upload_document_slot(app_id):
+    """Uploads or replaces a document specifically for a designated loan checklist slot"""
+    application = LoanApplication.query.get_or_404(app_id)
+    if session.get('role') == 'applicant' and application.applicant.user_id != session['user_id']:
+        flash("Unauthorized action.", "danger")
+        return redirect(url_for('applicant.dashboard'))
+
+    slot_key = request.form.get('slot_key', 'salary_slip')
+    file = request.files.get('file')
+
+    if not file or file.filename == '':
+        flash("Please select a file to upload.", "warning")
+        return redirect(url_for('applicant.document_upload', app_id=app_id))
+
+    if not allowed_file(file.filename):
+        flash("Invalid file format. Only PDF, JPG, and PNG documents are allowed.", "danger")
+        return redirect(url_for('applicant.document_upload', app_id=app_id))
+
+    orig_filename = secure_filename(file.filename)
+    file_ext = orig_filename.rsplit('.', 1)[1].lower()
+    storage_filename = f"app_{app_id}_{slot_key}_{uuid.uuid4().hex[:8]}_{orig_filename}"
+
+    app_upload_dir = Path(current_app.config['UPLOAD_FOLDER']) / f"app_{app_id}"
+    app_upload_dir.mkdir(parents=True, exist_ok=True)
+    file_dest = app_upload_dir / storage_filename
+    file.save(str(file_dest))
+    file_size = file_dest.stat().st_size
+
+    # Check if a document already exists for this slot
+    existing_doc = UploadedDocument.query.filter_by(
+        application_id=application.id
+    ).filter(
+        (UploadedDocument.slot_key == slot_key) | (UploadedDocument.document_type == slot_key)
+    ).first()
+
+    if existing_doc:
+        # Archive into replacement history
+        history = existing_doc.replacement_history
+        history.append({
+            'replaced_filename': existing_doc.original_filename,
+            'replaced_at': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+            'previous_status': existing_doc.verification_status,
+            'reviewer_notes': existing_doc.reviewer_comments or existing_doc.verification_notes
+        })
+        existing_doc.replacement_history = history
+        existing_doc.replacement_count = (existing_doc.replacement_count or 0) + 1
+        existing_doc.original_filename = orig_filename
+        existing_doc.stored_filename = storage_filename
+        existing_doc.file_path = str(file_dest)
+        existing_doc.file_size = file_size
+        existing_doc.file_type = file_ext
+        existing_doc.verification_status = 'pending'
+        existing_doc.verification_notes = "Replacement document uploaded by applicant. Pending verification."
+        existing_doc.uploaded_at = datetime.utcnow()
+        doc_record = existing_doc
+    else:
+        doc_record = UploadedDocument(
+            application_id=application.id,
+            user_id=session['user_id'],
+            document_type=slot_key,
+            slot_key=slot_key,
+            original_filename=orig_filename,
+            stored_filename=storage_filename,
+            file_path=str(file_dest),
+            file_size=file_size,
+            file_type=file_ext,
+            verification_status='pending',
+            verification_notes="Uploaded by applicant. Pending verification."
+        )
+        db.session.add(doc_record)
+        db.session.flush()
+
+    # Automated PyMuPDF & OCR extraction
+    raw_text, method, success, error_msg = DocumentProcessor.extract_raw_text(str(file_dest))
+    structured = DocumentProcessor.extract_structured_fields(raw_text, slot_key)
+
+    if doc_record.extracted_record:
+        ext = doc_record.extracted_record
+        ext.extraction_method = method
+        ext.raw_text = raw_text
+        ext.applicant_name_extracted = structured.get("applicant_name")
+        ext.company_name_extracted = structured.get("company_name")
+        ext.salary_amount_extracted = structured.get("salary_amount")
+        ext.salary_month_extracted = structured.get("salary_month")
+        ext.deductions_extracted = structured.get("deductions")
+        ext.bank_credits_extracted = structured.get("bank_credits")
+        ext.document_date_extracted = structured.get("document_date")
+        ext.confidence_score = structured.get("confidence_score", 0.0)
+        ext.updated_at = datetime.utcnow()
+    else:
+        ext = ExtractedDocumentData(
+            document_id=doc_record.id,
+            application_id=application.id,
+            extraction_method=method,
+            raw_text=raw_text,
+            applicant_name_extracted=structured.get("applicant_name"),
+            company_name_extracted=structured.get("company_name"),
+            salary_amount_extracted=structured.get("salary_amount"),
+            salary_month_extracted=structured.get("salary_month"),
+            deductions_extracted=structured.get("deductions"),
+            bank_credits_extracted=structured.get("bank_credits"),
+            document_date_extracted=structured.get("document_date"),
+            confidence_score=structured.get("confidence_score", 0.0)
+        )
+        db.session.add(ext)
+
+    if slot_key == 'salary_slip' and structured.get("salary_amount"):
+        srec = SalaryHistory.query.filter_by(source_document_id=doc_record.id).first()
+        if not srec:
+            srec = SalaryHistory(
+                application_id=application.id,
+                month_year=structured.get("salary_month") or datetime.utcnow().strftime("%b %Y"),
+                net_salary=structured.get("salary_amount"),
+                deductions=structured.get("deductions", 0.0) or 0.0,
+                employer_name=structured.get("company_name") or application.company_name,
+                bank_credit_amount=structured.get("bank_credits"),
+                is_verified=False,
+                source_document_id=doc_record.id
+            )
+            db.session.add(srec)
+        else:
+            srec.net_salary = structured.get("salary_amount")
+            srec.deductions = structured.get("deductions", 0.0) or 0.0
+            srec.employer_name = structured.get("company_name") or application.company_name
+
+    db.session.commit()
+
+    # Recalculate assessment
+    assessment = FinancialCalculator.compute_assessment(application)
+    MLScorer.evaluate(application, assessment)
+    EligibilityEngine.run_assessment(application, assessment)
+
+    action_label = "replaced" if existing_doc and existing_doc.replacement_count > 0 else "uploaded"
+    log_action(
+        "DOCUMENT_UPLOADED",
+        application_id=application.id,
+        details=f"Document '{orig_filename}' {action_label} for slot '{slot_key}'."
+    )
+    flash(f"Document '{orig_filename}' successfully {action_label} and parsed!", "success")
+    return redirect(url_for('applicant.document_upload', app_id=app_id))
+
+
+# Remove Document Route
+@applicant_bp.route('/application/<int:app_id>/document/<int:doc_id>/remove', methods=['POST'])
+@login_required
+def remove_document(app_id, doc_id):
+    """Removes an uploaded document from its slot and recalculates assessment"""
+    application = LoanApplication.query.get_or_404(app_id)
+    doc = UploadedDocument.query.get_or_404(doc_id)
+
+    if session.get('role') == 'applicant' and application.applicant.user_id != session['user_id']:
+        flash("Unauthorized action.", "danger")
+        return redirect(url_for('applicant.dashboard'))
+
+    filename = doc.original_filename
+    doc_type = doc.document_type
+
+    # Delete physical file if exists
+    try:
+        p = Path(doc.file_path)
+        if p.exists() and "sample_docs" not in str(p):
+            p.unlink(missing_ok=True)
+    except Exception:
+        pass
+
+    db.session.delete(doc)
+    db.session.commit()
+
+    # Recalculate assessment
+    assessment = FinancialCalculator.compute_assessment(application)
+    MLScorer.evaluate(application, assessment)
+    EligibilityEngine.run_assessment(application, assessment)
+
+    log_action(
+        "DOCUMENT_REMOVED",
+        application_id=application.id,
+        details=f"Removed document #{doc_id} ({doc_type}: {filename})."
+    )
+    flash(f"Document '{filename}' was removed from the application.", "info")
+    return redirect(url_for('applicant.document_upload', app_id=app_id))
+
+
+# Submit All Documents for Underwriting Route
+@applicant_bp.route('/application/<int:app_id>/submit-documents', methods=['POST'])
+@login_required
+def submit_application_documents(app_id):
+    """Validates that all mandatory documents are uploaded and submits application for final underwriting"""
+    application = LoanApplication.query.get_or_404(app_id)
+    if session.get('role') == 'applicant' and application.applicant.user_id != session['user_id']:
+        flash("Unauthorized action.", "danger")
+        return redirect(url_for('applicant.dashboard'))
+
+    from services.document_catalog import evaluate_application_document_slots
+    slots, doc_progress = evaluate_application_document_slots(application)
+
+    if not doc_progress['can_submit']:
+        missing_count = len(doc_progress['missing_required'])
+        flash(
+            f"Cannot submit yet: {missing_count} mandatory document(s) are still pending. Please upload all required files.",
+            "warning"
+        )
+        return redirect(url_for('applicant.document_upload', app_id=app_id))
+
+    # Recalculate full underwriting
+    assessment = FinancialCalculator.compute_assessment(application)
+    MLScorer.evaluate(application, assessment)
+    overall_outcome, checks = EligibilityEngine.run_assessment(application, assessment)
+
+    log_action(
+        "DOCUMENTS_SUBMITTED",
+        application_id=application.id,
+        details=f"Applicant submitted all {doc_progress['uploaded_required']} required documents for underwriting. Outcome: {overall_outcome}."
+    )
+    flash("All required documents have been uploaded! Your application has been submitted for automated underwriting.", "success")
+    return redirect(url_for('applicant.eligibility_results', app_id=app_id))
 
 
 # Quick Demo Document Attacher
@@ -491,11 +719,14 @@ def attach_demo_doc(app_id):
     """Convenience helper to attach synthetic sample PDF for immediate testing"""
     application = LoanApplication.query.get_or_404(app_id)
     doc_type = request.form.get('demo_doc_type', 'salary_slip')
+    slot_key = request.form.get('slot_key', doc_type)
 
     sample_dir = Path(current_app.config['UPLOAD_FOLDER']) / "sample_docs"
     sample_files = SampleDocGenerator.ensure_sample_documents(sample_dir)
 
     target_file = sample_files.get(doc_type)
+    if not target_file or not Path(target_file).exists():
+        target_file = sample_files.get(slot_key)
     if not target_file or not Path(target_file).exists():
         target_file = sample_files.get("salary_slip")
 
@@ -506,51 +737,87 @@ def attach_demo_doc(app_id):
     orig_name = Path(target_file).name
     file_size = Path(target_file).stat().st_size
 
-    uploaded_doc = UploadedDocument(
-        application_id=application.id,
-        user_id=session['user_id'],
-        document_type=doc_type,
-        original_filename=orig_name,
-        stored_filename=orig_name,
-        file_path=str(target_file),
-        file_size=file_size,
-        file_type="pdf",
-        verification_status='verified',
-        verification_notes="Synthetic demo document attached for automated verification."
-    )
-    db.session.add(uploaded_doc)
-    db.session.flush()
+    # Check if document already exists for this slot
+    existing_doc = UploadedDocument.query.filter_by(
+        application_id=application.id
+    ).filter(
+        (UploadedDocument.slot_key == slot_key) | (UploadedDocument.document_type == slot_key) | (UploadedDocument.document_type == doc_type)
+    ).first()
+
+    if existing_doc:
+        existing_doc.original_filename = orig_name
+        existing_doc.stored_filename = orig_name
+        existing_doc.file_path = str(target_file)
+        existing_doc.file_size = file_size
+        existing_doc.file_type = "pdf"
+        existing_doc.verification_status = 'verified'
+        existing_doc.verification_notes = "Synthetic demo document attached for automated verification."
+        uploaded_doc = existing_doc
+    else:
+        uploaded_doc = UploadedDocument(
+            application_id=application.id,
+            user_id=session['user_id'],
+            document_type=doc_type,
+            slot_key=slot_key,
+            original_filename=orig_name,
+            stored_filename=orig_name,
+            file_path=str(target_file),
+            file_size=file_size,
+            file_type="pdf",
+            verification_status='verified',
+            verification_notes="Synthetic demo document attached for automated verification."
+        )
+        db.session.add(uploaded_doc)
+        db.session.flush()
 
     raw_text, method, _, _ = DocumentProcessor.extract_raw_text(str(target_file))
     structured = DocumentProcessor.extract_structured_fields(raw_text, doc_type)
 
-    ext = ExtractedDocumentData(
-        document_id=uploaded_doc.id,
-        application_id=application.id,
-        extraction_method=method,
-        raw_text=raw_text,
-        applicant_name_extracted=structured.get("applicant_name"),
-        company_name_extracted=structured.get("company_name"),
-        salary_amount_extracted=structured.get("salary_amount"),
-        salary_month_extracted=structured.get("salary_month"),
-        deductions_extracted=structured.get("deductions"),
-        bank_credits_extracted=structured.get("bank_credits"),
-        document_date_extracted=structured.get("document_date"),
-        confidence_score=structured.get("confidence_score", 0.0)
-    )
-    db.session.add(ext)
+    if uploaded_doc.extracted_record:
+        ext = uploaded_doc.extracted_record
+        ext.extraction_method = method
+        ext.raw_text = raw_text
+        ext.applicant_name_extracted = structured.get("applicant_name")
+        ext.company_name_extracted = structured.get("company_name")
+        ext.salary_amount_extracted = structured.get("salary_amount")
+        ext.salary_month_extracted = structured.get("salary_month")
+        ext.deductions_extracted = structured.get("deductions")
+        ext.bank_credits_extracted = structured.get("bank_credits")
+        ext.document_date_extracted = structured.get("document_date")
+        ext.confidence_score = structured.get("confidence_score", 0.0)
+    else:
+        ext = ExtractedDocumentData(
+            document_id=uploaded_doc.id,
+            application_id=application.id,
+            extraction_method=method,
+            raw_text=raw_text,
+            applicant_name_extracted=structured.get("applicant_name"),
+            company_name_extracted=structured.get("company_name"),
+            salary_amount_extracted=structured.get("salary_amount"),
+            salary_month_extracted=structured.get("salary_month"),
+            deductions_extracted=structured.get("deductions"),
+            bank_credits_extracted=structured.get("bank_credits"),
+            document_date_extracted=structured.get("document_date"),
+            confidence_score=structured.get("confidence_score", 0.0)
+        )
+        db.session.add(ext)
 
     if doc_type == 'salary_slip' and structured.get("salary_amount"):
-        srec = SalaryHistory(
-            application_id=application.id,
-            month_year=structured.get("salary_month") or "Aug 2024",
-            net_salary=structured.get("salary_amount"),
-            deductions=structured.get("deductions", 0.0) or 0.0,
-            employer_name=structured.get("company_name") or application.company_name,
-            is_verified=True,
-            source_document_id=uploaded_doc.id
-        )
-        db.session.add(srec)
+        srec = SalaryHistory.query.filter_by(source_document_id=uploaded_doc.id).first()
+        if not srec:
+            srec = SalaryHistory(
+                application_id=application.id,
+                month_year=structured.get("salary_month") or "Aug 2024",
+                net_salary=structured.get("salary_amount"),
+                deductions=structured.get("deductions", 0.0) or 0.0,
+                employer_name=structured.get("company_name") or application.company_name,
+                is_verified=True,
+                source_document_id=uploaded_doc.id
+            )
+            db.session.add(srec)
+        else:
+            srec.net_salary = structured.get("salary_amount")
+            srec.is_verified = True
 
     db.session.commit()
 

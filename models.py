@@ -242,8 +242,26 @@ class UploadedDocument(db.Model):
     verified_at = db.Column(db.DateTime, nullable=True)
     verified_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
 
+    # Slot tracking & Reviewer replacement feedback
+    slot_key = db.Column(db.String(60), nullable=True)
+    reviewer_comments = db.Column(db.Text, nullable=True)
+    replacement_count = db.Column(db.Integer, default=0)
+    replacement_history_json = db.Column(db.Text, default='[]')
+
     verified_by = db.relationship('User', foreign_keys=[verified_by_id])
     extracted_record = db.relationship('ExtractedDocumentData', backref='source_document', uselist=False, cascade='all, delete-orphan')
+
+    @property
+    def replacement_history(self):
+        try:
+            return json.loads(self.replacement_history_json or '[]')
+        except Exception:
+            return []
+
+    @replacement_history.setter
+    def replacement_history(self, val):
+        self.replacement_history_json = json.dumps(val or [])
+
 
 
 class ExtractedDocumentData(db.Model):

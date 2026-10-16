@@ -676,20 +676,27 @@ class EligibilityEngine:
         ))
 
         # =============================================================
-        # MANDATORY DOCUMENT CHECK
+        # MANDATORY DOCUMENT CHECK (Loan-Specific Catalog & Policy)
         # =============================================================
         order_idx += 1
+        from services.document_catalog import evaluate_application_document_slots
+        slots, doc_progress = evaluate_application_document_slots(application)
+
         required_doc_types = policy.required_documents_list
         missing_docs = []
         for dt in required_doc_types:
             if dt in uploaded_doc_types:
                 continue
             # Handle aliases across loan policies
-            if dt in ('property_docs', 'property_documents') and ('property_docs' in uploaded_doc_types or 'property_documents' in uploaded_doc_types):
+            if dt in ('property_docs', 'property_documents', 'property_sale_agreement', 'property_valuation') and any(
+                k in uploaded_doc_types for k in ('property_docs', 'property_documents', 'property_sale_agreement', 'property_valuation')
+            ):
                 continue
-            if dt in ('land_records', 'land_records_patta') and ('land_records' in uploaded_doc_types or 'land_records_patta' in uploaded_doc_types):
+            if dt in ('land_records', 'land_records_patta') and any(k in uploaded_doc_types for k in ('land_records', 'land_records_patta')):
                 continue
-            if dt in ('gold_valuation_cert', 'gold_ownership_declaration') and ('gold_valuation_cert' in uploaded_doc_types or 'gold_ownership_declaration' in uploaded_doc_types):
+            if dt in ('gold_valuation_cert', 'gold_valuation_appraisal', 'gold_ownership_declaration', 'gold_ownership_receipt') and any(
+                k in uploaded_doc_types for k in ('gold_valuation_cert', 'gold_valuation_appraisal', 'gold_ownership_declaration', 'gold_ownership_receipt')
+            ):
                 continue
             missing_docs.append(dt)
 
@@ -715,9 +722,10 @@ class EligibilityEngine:
             "crop_declaration": "Agricultural Crop Sowing Declaration"
         }
 
-        if not missing_docs:
+        # Check satisfies if either standard policy required docs are present or dynamic checklist is satisfied
+        if not missing_docs or doc_progress['can_submit']:
             status = "PASS"
-            actual_val = f"All {len(required_doc_types)} required document categories uploaded"
+            actual_val = f"All {len(required_doc_types)} required document categories uploaded ({doc_progress['total_uploaded']} files attached)"
             explanation = f"All mandatory document categories specified by {policy.bank_name} for {policy.loan_type} have been uploaded."
             supporting_doc = "Uploaded Documents Repository"
             next_step = "Requirement satisfied. Documents are undergoing officer authentication."
@@ -725,7 +733,9 @@ class EligibilityEngine:
             status = "PENDING_VERIFICATION"
             has_pending = True
             missing_names = [doc_label_map.get(dt, dt.replace('_', ' ').title()) for dt in missing_docs]
-            actual_val = f"{len(missing_docs)} mandatory document(s) missing"
+            if not missing_names and doc_progress['missing_required']:
+                missing_names = doc_progress['missing_required']
+            actual_val = f"{len(missing_names)} mandatory document(s) missing"
             explanation = (
                 f"The lender policy for {policy.loan_type} mandates: {', '.join(missing_names)}. "
                 "These documents have not yet been provided."
